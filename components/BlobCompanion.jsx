@@ -1,37 +1,91 @@
 "use client";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 
-// --- CONSTANTS & CONFIG ---
-const BLOB_SIZE = 140;
-const HALF = BLOB_SIZE / 2;
-const BASE_GRAVITY = 0.72;
-const AIR_FRICTION = 0.988;
+// --- ROBOT & PHYSICS CONSTANTS ---
+const BASE_GRAVITY = 0.75;
+const AIR_FRICTION = 0.985;
 const WALL_BOUNCE = 0.6;
 const FLOOR_BOUNCE = 0.52;
-const FOLLOW_SPRING = 0.26;
+const FOLLOW_SPRING = 0.28;
 const RECOVERY = 0.18;
 const PAD = 16;
 const EXPLODE_THRESHOLD = 10;
-const IDLE_SLEEPY_MS = 12000;
-const IDLE_ASLEEP_MS = 20000;
-
+const IDLE_SLEEPY_MS = 18000;
+const IDLE_ASLEEP_MS = 30000;
 const BALL_RADIUS = 20;
 
-const SKINS = [
-  { name: "Minty", grad: "radial-gradient(circle at 35% 30%, #d4ffe9, #5eead4 55%, #14b8a6 100%)", swatch: "#5eead4", particles: ["#5eead4", "#14b8a6", "#ccfbf1"] },
-  { name: "Bubblegum", grad: "radial-gradient(circle at 35% 30%, #ffe4f3, #f472b6 55%, #db2777 100%)", swatch: "#f472b6", particles: ["#f472b6", "#db2777", "#fce7f3"] },
-  { name: "Solar Flare", grad: "radial-gradient(circle at 35% 30%, #fef08a, #fb923c 55%, #ea580c 100%)", swatch: "#fb923c", particles: ["#fb923c", "#fef08a", "#ea580c"] },
-  { name: "Cyber Iris", grad: "radial-gradient(circle at 35% 30%, #f3e8ff, #c084fc 55%, #7e22ce 100%)", swatch: "#c084fc", particles: ["#c084fc", "#7e22ce", "#f3e8ff"] },
-  { name: "Electric Blue", grad: "radial-gradient(circle at 35% 30%, #e0f2fe, #38bdf8 55%, #0284c7 100%)", swatch: "#38bdf8", particles: ["#38bdf8", "#0284c7", "#e0f2fe"] },
-  { name: "Matcha", grad: "radial-gradient(circle at 35% 30%, #ecfccb, #a3e635 55%, #65a30d 100%)", swatch: "#a3e635", particles: ["#a3e635", "#65a30d", "#ecfccb"] },
+// --- HARDWARE CHASSIS THEMES ---
+const CHASSIS_THEMES = [
+  { name: "Cyber Teal", body: "linear-gradient(155deg, #1e293b, #0f172a 60%, #020617 100%)", border: "#38bdf8", eyeGlow: "#38bdf8", accent: "#38bdf8", glow: "rgba(56,189,248,0.45)", particles: ["#38bdf8", "#0284c7", "#e0f2fe"] },
+  { name: "Neon Violet", body: "linear-gradient(155deg, #2e1065, #17072b 60%, #0a0314 100%)", border: "#c084fc", eyeGlow: "#c084fc", accent: "#a855f7", glow: "rgba(192,132,252,0.45)", particles: ["#c084fc", "#7e22ce", "#f3e8ff"] },
+  { name: "Matrix Emerald", body: "linear-gradient(155deg, #064e3b, #022c22 60%, #01140e 100%)", border: "#34d399", eyeGlow: "#4ade80", accent: "#10b981", glow: "rgba(52,211,153,0.45)", particles: ["#34d399", "#10b981", "#a7f3d0"] },
+  { name: "Solar Gold", body: "linear-gradient(155deg, #3f2606, #1c1002 60%, #0d0601 100%)", border: "#fbbf24", eyeGlow: "#facc15", accent: "#f59e0b", glow: "rgba(251,191,36,0.45)", particles: ["#facc15", "#f59e0b", "#fef08a"] },
+  { name: "Crimson Mecha", body: "linear-gradient(155deg, #4c0519, #25020c 60%, #100105 100%)", border: "#f43f5e", eyeGlow: "#fb7185", accent: "#e11d48", glow: "rgba(244,63,94,0.45)", particles: ["#f43f5e", "#e11d48", "#ffe4e6"] },
 ];
 
-const SCARED_GRAD = "radial-gradient(circle at 35% 30%, #fee2e2, #f87171 55%, #dc2626 100%)";
-const SLEEPY_GRAD = "radial-gradient(circle at 35% 30%, #e0f2fe, #7dd3fc 55%, #0ea5e9 100%)";
+const COMPLIMENTS = [
+  "You have the highest intelligence quotient in my neural registry! 🧠✨",
+  "If my circuits had feelings, my processor would overclock for you! 💓",
+  "Your smile generates 1.21 Gigawatts of pure positivity! ⚡",
+  "You are 100% certified my favorite human! 🤖🌟",
+];
 
-// --- AUDIO SYNTH ENGINE ---
-function useSounds(mutedRef) {
+const SECRETS = [
+  "I secretly practice robot breakdancing when your browser is in the background! 🤫",
+  "My favorite number is 42, the answer to the universe! 🌌",
+  "01001001 00100000 01101100 01101111 01110110 01100101 00100000 01111001 01101111 01110101! (It means I love you) ✨",
+  "Sometimes I scan for aliens just to look busy! 🛸",
+];
+
+const FORTUNE_ANSWERS = [
+  "It is decidedly so! 🔮",
+  "Outlook extremely bright! ✨",
+  "Ask again later, calculating... 🌀",
+  "My neural net says NO! ❌",
+  "100% Guaranteed Yes! 🚀",
+  "Very doubtful! 🤔",
+  "Positive bio-resonance detected! 💫",
+];
+
+const COMMAND_LIST = [
+  { group: "Live Web APIs (Real Data)", items: [
+    { cmd: '"Weather"', desc: "Fetches live hyperlocal temperature & sky conditions (Open-Meteo API)." },
+    { cmd: '"Joke" / "Tell me a joke"', desc: "Fetches live programming & pun jokes (JokeAPI)." },
+    { cmd: '"Trivia" / "Live Trivia"', desc: "Fetches interactive multiple-choice trivia (OpenTDB API)." },
+    { cmd: '"Pokedex" / "Scan Pikachu"', desc: "Pulls real Pokémon stats, types & pixel sprites (PokéAPI)." },
+    { cmd: '"Space" / "NASA Scan"', desc: "Fetches today's NASA Astronomy discovery (NASA APOD API)." },
+    { cmd: '"Define [word]"', desc: "Looks up definitions & real pronunciations (Free Dictionary API)." },
+  ]},
+  { group: "Games & Interactive Modes", items: [
+    { cmd: '"Simon says" / "Memory"', desc: "Memory matrix sequence game on OLED." },
+    { cmd: '"Play soccer" / "Football"', desc: "Spawns soccer match with physics scoring." },
+    { cmd: '"Laser chase" / "Laser"', desc: "Interactive laser hunt tracking mode." },
+    { cmd: '"Rock paper scissors"', desc: "RPS showdown against EMO." },
+    { cmd: '"Math duel"', desc: "Rapid arithmetic computation problem." },
+    { cmd: '"Fortune 8-Ball"', desc: "Magic 8-Ball oracle prediction." },
+    { cmd: '"Roll dice" / "Flip coin"', desc: "Coin toss or 6-sided dice roll." },
+  ]},
+  { group: "Music, Beats & Sound FX", items: [
+    { cmd: '"Dance" / "Play music"', desc: "Synth DJ dance routine with audio." },
+    { cmd: '"Beatbox" / "Drop a beat"', desc: "Live 8-bit robot beatboxing." },
+    { cmd: '"Lullaby" / "Sleep song"', desc: "Plays soothing sleep frequencies." },
+    { cmd: '"Siren" / "Red alert"', desc: "Emergency alarm with flashing lights." },
+    { cmd: '"Hypno" / "Dizzy"', desc: "Hypnotic spiral eye animations." },
+  ]},
+  { group: "Personality & Tools", items: [
+    { cmd: '"What time is it?" / "Time"', desc: "Speaks and projects neon digital clock." },
+    { cmd: '"Focus timer" / "Timer"', desc: "Starts a 5-minute productivity timer." },
+    { cmd: '"Matrix mode"', desc: "Hacker green terminal rain effect." },
+    { cmd: '"Flip gravity" / "Fly"', desc: "Toggles anti-gravity physics." },
+    { cmd: '"Self destruct" / "Explode"', desc: "Confetti overload explosion & reboot." },
+    { cmd: '"I love you" / "Kiss"', desc: "Sends kisses, hearts, and purrs happily." },
+  ]}
+];
+
+// --- AUDIO & MUSIC ENGINE ---
+function useEmoAudio(mutedRef) {
   const ctxRef = useRef(null);
+  const danceIntervalRef = useRef(null);
 
   const getCtx = () => {
     if (!ctxRef.current && typeof window !== "undefined") {
@@ -85,7 +139,61 @@ function useSounds(mutedRef) {
     } catch {}
   }, [mutedRef]);
 
+  const stopMusic = useCallback(() => {
+    if (danceIntervalRef.current) {
+      clearInterval(danceIntervalRef.current);
+      danceIntervalRef.current = null;
+    }
+  }, []);
+
+  const playDanceBeat = useCallback(() => {
+    stopMusic();
+    if (mutedRef.current) return;
+    const notes = [261.63, 329.63, 392.0, 523.25, 440.0, 349.23, 392.0, 587.33];
+    let step = 0;
+    danceIntervalRef.current = setInterval(() => {
+      if (mutedRef.current) return;
+      const freq = notes[step % notes.length];
+      tone(freq, 0.13, "square", 0.12);
+      if (step % 2 === 0) tone(130, 0.09, "triangle", 0.25, 0, 45);
+      step++;
+    }, 175);
+  }, [tone, stopMusic, mutedRef]);
+
+  const playLullaby = useCallback(() => {
+    stopMusic();
+    if (mutedRef.current) return;
+    const lullabyNotes = [329.63, 392.0, 440.0, 392.0, 329.63, 261.63];
+    let step = 0;
+    danceIntervalRef.current = setInterval(() => {
+      if (mutedRef.current) return;
+      tone(lullabyNotes[step % lullabyNotes.length], 0.45, "sine", 0.1);
+      step++;
+    }, 500);
+  }, [tone, stopMusic, mutedRef]);
+
+  const beatbox = useCallback(() => {
+    const hits = [
+      () => tone(140, 0.09, "triangle", 0.3, 0, 30),
+      () => noiseBurst(0.08, 0.18, 3000),
+      () => tone(420, 0.04, "square", 0.1, 0, 200),
+      () => noiseBurst(0.14, 0.22, 1800),
+    ];
+    hits.forEach((fn, idx) => setTimeout(fn, idx * 160));
+  }, [tone, noiseBurst]);
+
+  const siren = useCallback(() => {
+    [600, 900, 600, 900].forEach((f, i) => tone(f, 0.18, "sawtooth", 0.12, i * 0.18));
+  }, [tone]);
+
   return {
+    tone,
+    stopMusic,
+    playDanceBeat,
+    playLullaby,
+    beatbox,
+    siren,
+    laserBeep: () => tone(1200, 0.05, "sawtooth", 0.12, 0, 400),
     poke: (pitchBoost = 0) => tone(560 + pitchBoost, 0.08, "sine", 0.15, 0, 380 + pitchBoost),
     boop: () => tone(320, 0.1, "sine", 0.16, 0, 180),
     giggle: () => [660, 780, 720, 880].forEach((f, i) => tone(f, 0.07, "triangle", 0.1, i * 0.07)),
@@ -109,10 +217,6 @@ function useSounds(mutedRef) {
       tone(260, 0.08, "sine", 0.22, 0, 520);
       noiseBurst(0.04, 0.12, 2000);
     },
-    goalFanfare: () => {
-      [523, 659, 783, 1046].forEach((f, i) => tone(f, 0.18, "triangle", 0.2, i * 0.1));
-    },
-    laserBeep: () => tone(1200, 0.04, "sine", 0.04, 0, 800),
     pop: () => {
       noiseBurst(0.28, 0.25, 3400);
       tone(130, 0.3, "sawtooth", 0.2, 0, 35);
@@ -123,109 +227,93 @@ function useSounds(mutedRef) {
     },
     reform: () => [240, 360, 480, 720].forEach((f, i) => tone(f, 0.1, "sine", 0.1, i * 0.07)),
     jump: () => tone(350, 0.12, "sine", 0.14, 0, 600),
-    toySelect: () => tone(600, 0.06, "triangle", 0.08, 0, 850),
+    talkBeep: () => tone(550 + Math.random() * 300, 0.06, "square", 0.08),
   };
 }
 
-// --- EXPRESSIVE VECTOR EYE ---
-function RenderEye({ pupilRef, side, mood, blink }) {
-  const isScared = mood === "scared";
-  const isSurprised = mood === "surprised" || mood === "falling";
-  const size = isScared || isSurprised ? 32 : 26;
-  const iris = Math.round(size * 0.58);
-  const pupilSize = isScared ? Math.round(iris * 0.38) : Math.round(iris * 0.5);
+// --- EXPRESSIVE OLED ROBOT EYES ---
+function EmoEye({ side, mood, blink, eyeColor }) {
+  const isDancing = mood === "dancing";
+  const isHappy = mood === "happy" || mood === "laughing";
+  const isAngry = mood === "angry";
+  const isScared = mood === "scared" || mood === "falling";
+  const isSleepy = mood === "sleepy" || mood === "asleep";
+  const isSurprised = mood === "surprised";
+  const isHypno = mood === "hypno";
+  const isSad = mood === "sad";
 
   return (
     <div
+      className="relative flex items-center justify-center transition-all duration-150 overflow-hidden"
       style={{
-        position: "absolute",
-        [side]: 34,
-        top: isSurprised ? 48 : 54,
-        width: size,
-        height: blink ? 3 : size,
-        borderRadius: "50%",
-        background: "#ffffff",
-        overflow: "hidden",
-        transition: "height 0.08s ease, width 0.15s, top 0.15s",
-        boxShadow: "inset 0 2px 4px rgba(0,0,0,0.18), 0 2px 4px rgba(0,0,0,0.1)",
+        width: 44,
+        height: blink || isSleepy ? 4 : isSurprised || isScared ? 50 : isSad ? 32 : 42,
+        backgroundColor: isAngry ? "#f43f5e" : isSad ? "#38bdf8" : eyeColor,
+        borderRadius: isAngry
+          ? side === "left"
+            ? "8px 30px 8px 8px"
+            : "30px 8px 8px 8px"
+          : isSad
+          ? side === "left"
+            ? "22px 8px 16px 16px"
+            : "8px 22px 16px 16px"
+          : isScared
+          ? "50%"
+          : isHappy
+          ? "22px 22px 6px 6px"
+          : "10px",
+        boxShadow: `0 0 20px ${isAngry ? "#f43f5e" : eyeColor}, inset 0 0 10px rgba(255,255,255,0.75)`,
+        transform: isDancing ? (side === "left" ? "rotate(-12deg) scaleY(1.1)" : "rotate(12deg) scaleY(1.1)") : "none",
       }}
     >
-      {!blink && (
+      {isHypno && (
+        <div className="w-7 h-7 rounded-full border-2 border-slate-900 border-dashed animate-spin" />
+      )}
+
+      {!blink && !isSleepy && !isAngry && !isHypno && !isSad && (
         <div
-          ref={pupilRef}
+          className="absolute rounded-full bg-white/95 shadow-sm"
           style={{
-            position: "absolute",
-            left: "50%",
-            top: "50%",
-            width: iris,
-            height: iris,
-            marginLeft: -iris / 2,
-            marginTop: -iris / 2,
-            borderRadius: "50%",
-            background: "#1e1b4b",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            transition: "transform 0.05s ease-out",
+            width: isScared ? 6 : 10,
+            height: isScared ? 6 : 10,
+            top: 4,
+            [side === "left" ? "right" : "left"]: 6,
           }}
-        >
-          <div
-            style={{
-              width: pupilSize,
-              height: pupilSize,
-              borderRadius: "50%",
-              background: "#030712",
-              position: "relative",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                width: pupilSize * 0.45,
-                height: pupilSize * 0.45,
-                borderRadius: "50%",
-                background: "white",
-                top: pupilSize * 0.06,
-                left: pupilSize * 0.1,
-                opacity: 0.95,
-              }}
-            />
-          </div>
-        </div>
+        />
       )}
     </div>
   );
 }
 
-export default function BlobCompanion() {
+export default function EmoCompanion() {
   const wrapRef = useRef(null);
-  const blobRef = useRef(null);
+  const robotRef = useRef(null);
   const ballElemRef = useRef(null);
-  const pupilLRef = useRef(null);
-  const pupilRRef = useRef(null);
 
-  // States
+  // States & Feelings Engine
   const [mood, setMoodState] = useState("idle");
+  const [affection, setAffection] = useState(85);
+  const [energy, setEnergy] = useState(90);
   const [blink, setBlink] = useState(false);
-  const [msg, setMsg] = useState("tap me, move me, make me explode");
-  const [skinIdx, setSkinIdx] = useState(0);
+  const [msg, setMsg] = useState("Hi! I'm EMO. Ask for live Weather, Trivia, or Joke!");
+  const [themeIdx, setThemeIdx] = useState(0);
   const [muted, setMuted] = useState(false);
   const [activeToy, setActiveToy] = useState("hand");
-  const [gravityFlipped, setGravityFlipped] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [clockDisplay, setClockDisplay] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [goalCelebration, setGoalCelebration] = useState(null);
-
-  // Scores
-  const [playerScore, setPlayerScore] = useState(0);
-  const [glubScore, setGlubScore] = useState(0);
-  const [popScore, setPopScore] = useState(0);
-
-  // Particles & Visuals
+  const [commandsOpen, setCommandsOpen] = useState(false);
+  const [discoActive, setDiscoActive] = useState(false);
+  const [matrixActive, setMatrixActive] = useState(false);
   const [particles, setParticles] = useState([]);
   const [hearts, setHearts] = useState([]);
   const [comboMeter, setComboMeter] = useState(0);
-  const [rainbow, setRainbow] = useState(false);
   const [laserPos, setLaserPos] = useState(null);
+  const [gameOverlay, setGameOverlay] = useState(null);
+  const [robotSize, setRobotSize] = useState({ w: 185, h: 165 });
+  const [simonGame, setSimonGame] = useState(null);
+  const [liveQuiz, setLiveQuiz] = useState(null);
+  const [pokemonCard, setPokemonCard] = useState(null);
 
   const moodRef = useRef("idle");
   const setMood = (m) => {
@@ -243,21 +331,16 @@ export default function BlobCompanion() {
     activeToyRef.current = activeToy;
   }, [activeToy]);
 
-  const skinIdxRef = useRef(0);
-  useEffect(() => {
-    skinIdxRef.current = skinIdx;
-  }, [skinIdx]);
+  const sounds = useEmoAudio(mutedRef);
 
-  const sounds = useSounds(mutedRef);
-
-  // Physics refs
-  const phys = useRef({ x: 300, y: 300, vx: 0, vy: 0, scaleX: 1, scaleY: 1, rotation: 0, held: false, stuck: false });
-  const ballPhys = useRef({ x: 180, y: 180, vx: 6, vy: -5, held: false, active: true, lastHitBy: "player" });
-  const bounds = useRef({ left: PAD, top: PAD, right: 800, bottom: 600 });
+  // Physics States
+  const phys = useRef({ x: 200, y: 300, vx: 0, vy: 0, scaleX: 1, scaleY: 1, rotation: 0, held: false, stuck: false, danceOffset: 0 });
+  const ballPhys = useRef({ x: 140, y: 200, vx: 5, vy: -4, held: false, active: true });
+  const bounds = useRef({ left: PAD, top: PAD, right: 600, bottom: 600 });
   const dragStart = useRef({ x: 0, y: 0, time: 0, blobX: 0, blobY: 0 });
-  const ballDragStart = useRef({ x: 0, y: 0, time: 0, ballX: 0, ballY: 0, lastX: 0, lastY: 0, lastTime: 0 });
+  const ballDragStart = useRef({ x: 0, y: 0, time: 0, lastX: 0, lastY: 0, lastTime: 0 });
   const lastMove = useRef({ x: 0, y: 0, time: 0 });
-  const followTarget = useRef({ x: 300, y: 300 });
+  const followTarget = useRef({ x: 200, y: 300 });
   const pointerOffset = useRef({ dx: 0, dy: 0 });
   const rubAccum = useRef(0);
   const totalWiggle = useRef(0);
@@ -267,104 +350,13 @@ export default function BlobCompanion() {
   const lastTapTime = useRef(0);
   const comboCount = useRef(0);
   const doubleTapTimer = useRef(null);
-  const forceReleased = useRef(false);
   const stuckTarget = useRef({ x: 0, y: 0 });
   const stuckEdge = useRef("bottom");
   const unstickTimer = useRef(null);
-  const cursorPos = useRef({ x: 300, y: 300 });
-  const rafRef = useRef(null);
-  const lastSnoreTime = useRef(0);
   const lastInteraction = useRef(performance.now());
-  const sleepyWarned = useRef(false);
-  const spinUntil = useRef(0);
-  const spinAxisSign = useRef(1);
-  const growUntil = useRef(0);
+  const rafRef = useRef(null);
   const hasScreamed = useRef(false);
   const gravityDir = useRef(1);
-  const goalCooldown = useRef(false);
-
-  // Resize & Boundary & Pointer Setup
-  useEffect(() => {
-    const updateBounds = () => {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      bounds.current = { left: PAD, top: PAD, right: w - PAD, bottom: h - PAD };
-      if (phys.current.x === 300 && phys.current.y === 300) {
-        phys.current.x = w / 2;
-        phys.current.y = h - HALF - 80;
-        followTarget.current = { x: phys.current.x, y: phys.current.y };
-        ballPhys.current.x = w / 2 - 120;
-        ballPhys.current.y = h / 2;
-      }
-    };
-    updateBounds();
-    window.addEventListener("resize", updateBounds);
-
-    const updateLaserTarget = (clientX, clientY) => {
-      cursorPos.current = { x: clientX, y: clientY };
-      if (activeToyRef.current === "laser") {
-        setLaserPos({ x: clientX, y: clientY });
-      }
-    };
-
-    const onMouseMove = (e) => {
-      updateLaserTarget(e.clientX, e.clientY);
-    };
-
-    const onTouchMove = (e) => {
-      if (e.touches && e.touches.length > 0) {
-        updateLaserTarget(e.touches[0].clientX, e.touches[0].clientY);
-      }
-    };
-
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("touchmove", onTouchMove, { passive: true });
-    window.addEventListener("touchstart", onTouchMove, { passive: true });
-
-    return () => {
-      window.removeEventListener("resize", updateBounds);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchstart", onTouchMove);
-    };
-  }, []);
-
-  // Keyboard controls
-  useEffect(() => {
-    const onKey = (e) => {
-      const p = phys.current;
-      if (moodRef.current === "exploded" || p.held || p.stuck) return;
-      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " ", "Spacebar"].includes(e.key)) {
-        e.preventDefault();
-      }
-      markInteractionRef.current();
-      if (e.key === "ArrowLeft") p.vx -= 8;
-      else if (e.key === "ArrowRight") p.vx += 8;
-      else if (e.key === "ArrowUp") {
-        p.vy -= 13 * gravityDir.current;
-        sounds.jump();
-      } else if (e.key === "ArrowDown") p.vy += 8 * gravityDir.current;
-      else if (e.key === " " || e.key === "Spacebar") {
-        p.vy = -18 * gravityDir.current;
-        sounds.jump();
-        setMsg("Wheee! 🚀");
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [sounds]);
-
-  const markInteraction = () => {
-    lastInteraction.current = performance.now();
-    sleepyWarned.current = false;
-  };
-  const markInteractionRef = useRef(markInteraction);
-  markInteractionRef.current = markInteraction;
-
-  const pulseSquish = (sx, sy) => {
-    phys.current.scaleX = sx;
-    phys.current.scaleY = sy;
-  };
 
   const clearMoodSoon = (from, ms) => {
     setTimeout(() => {
@@ -372,166 +364,75 @@ export default function BlobCompanion() {
     }, ms);
   };
 
-  const triggerGoal = (scorer) => {
-    if (goalCooldown.current) return;
-    goalCooldown.current = true;
-    sounds.goalFanfare();
+  const markInteraction = () => {
+    lastInteraction.current = performance.now();
+    setEnergy((e) => Math.min(100, e + 1));
+  };
 
-    const isPlayer = scorer === "You";
-    if (isPlayer) {
-      setPlayerScore((s) => s + 1);
-      setMood("surprised");
-      setMsg("GOAAAL! What a strike! 🏆🔥");
-      setGoalCelebration("GOAL! YOU SCORED! 🎉");
-    } else {
-      setGlubScore((s) => s + 1);
-      setMood("happy");
-      setMsg("GOAAAL for Glub! Top bin! ⚽⚡");
-      setGoalCelebration("GLUB SCORED! 🌟");
-    }
+  const speakText = useCallback((text) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window) || mutedRef.current) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.pitch = 1.6;
+      utterance.rate = 1.1;
+      window.speechSynthesis.speak(utterance);
+    } catch {}
+  }, [mutedRef]);
 
-    pulseSquish(1.35, 0.7);
-
-    // Goal confetti burst
-    const b = bounds.current;
-    const cx = (b.left + b.right) / 2;
-    const cy = (b.top + b.bottom) / 2;
-    const n = 24;
-    const parts = Array.from({ length: n }).map((_, i) => {
-      const angle = (Math.PI * 2 * i) / n + Math.random() * 0.3;
-      const dist = 90 + Math.random() * 140;
-      return {
-        id: Date.now() + i,
-        x: cx,
-        y: cy - 40,
-        tx: Math.cos(angle) * dist,
-        ty: Math.sin(angle) * dist - 50,
-        color: ["#facc15", "#38bdf8", "#f43f5e", "#4ade80", "#c084fc"][i % 5],
-        size: 10 + Math.random() * 12,
-      };
-    });
-    setParticles(parts);
-    setTimeout(() => setParticles([]), 1100);
-
-    // Reset ball to center
-    setTimeout(() => {
-      ballPhys.current.x = (b.left + b.right) / 2;
-      ballPhys.current.y = (b.top + b.bottom) / 2 - 80;
-      ballPhys.current.vx = (Math.random() - 0.5) * 8;
-      ballPhys.current.vy = -6;
-      setGoalCelebration(null);
-      goalCooldown.current = false;
-      clearMoodSoon("happy", 800);
-      clearMoodSoon("surprised", 800);
-    }, 1600);
+  const pulseSquish = (sx, sy) => {
+    phys.current.scaleX = sx;
+    phys.current.scaleY = sy;
   };
 
   const triggerKiss = () => {
     sounds.kiss();
     setMood("happy");
-    setMsg("Mwah! 💕");
-    pulseSquish(1.2, 1.2);
+    setAffection((a) => Math.min(100, a + 8));
+    setMsg("Mwah! I love you! 💕🤖");
+    pulseSquish(1.15, 1.15);
     const cx = phys.current.x;
     const cy = phys.current.y;
-    const newHearts = Array.from({ length: 4 }).map((_, i) => ({
+    const newHearts = Array.from({ length: 5 }).map((_, i) => ({
       id: Date.now() + i,
       x: cx + (Math.random() - 0.5) * 50,
-      y: cy - HALF * 0.4,
+      y: cy - robotSize.h * 0.4,
       delay: i * 0.1,
     }));
     setHearts((h) => [...h, ...newHearts]);
     setTimeout(() => setHearts((h) => h.filter((x) => !newHearts.includes(x))), 1200);
-    clearMoodSoon("happy", 800);
-  };
-
-  const triggerPoke = () => {
-    const now = performance.now();
-    if (now - lastTapTime.current < 650) comboCount.current += 1;
-    else comboCount.current = 1;
-    lastTapTime.current = now;
-    setComboMeter(comboCount.current);
-
-    if (comboCount.current >= EXPLODE_THRESHOLD) {
-      if (doubleTapTimer.current) clearTimeout(doubleTapTimer.current);
-      explode();
-      return;
-    }
-
-    const pitchBoost = Math.min(comboCount.current * 45, 500);
-    sounds.poke(pitchBoost);
-    const squash = Math.min(0.22 + comboCount.current * 0.04, 0.55);
-    pulseSquish(1 + squash, 1 - squash);
-
-    if (comboCount.current === 1) {
-      const special = ["spin", "hic", "rainbow", "grow", null, null][Math.floor(Math.random() * 6)];
-      if (special === "spin") {
-        spinUntil.current = now + 520;
-        spinAxisSign.current = Math.random() < 0.5 ? 1 : -1;
-        sounds.whee();
-        setMsg("Spin cycle! 🌀");
-      } else if (special === "hic") {
-        sounds.boop();
-        setMsg("*hiccup!* 🫧");
-      } else if (special === "rainbow") {
-        setRainbow(true);
-        sounds.chirp();
-        setMsg("✨ Prismatic Glub! ✨");
-        setTimeout(() => setRainbow(false), 1200);
-      } else if (special === "grow") {
-        pulseSquish(1.4, 1.4);
-        sounds.boop();
-        setMsg("*big inhale!*");
-      } else {
-        setMsg(["Hehe!", "Hi friend!", "Boop!", "Squishy~"][Math.floor(Math.random() * 4)]);
-      }
-      setMood("happy");
-      clearMoodSoon("happy", 450);
-    } else if (comboCount.current === 2) {
-      if (doubleTapTimer.current) clearTimeout(doubleTapTimer.current);
-      doubleTapTimer.current = setTimeout(() => {
-        if (comboCount.current === 2) triggerKiss();
-      }, 300);
-      setMood("happy");
-    } else {
-      if (doubleTapTimer.current) clearTimeout(doubleTapTimer.current);
-      if (comboCount.current <= 5) setMsg(["Tickles!", "Again?!", "Whoa!"][Math.floor(Math.random() * 3)]);
-      else if (comboCount.current <= 8) setMsg(["Dizzy dizzy...", "Okay stoppp haha!"][Math.floor(Math.random() * 2)]);
-      else setMsg(["Brace for impact!", "I'm gonna burst! 💥"][Math.floor(Math.random() * 2)]);
-      setMood("happy");
-      clearMoodSoon("happy", 450);
-    }
+    clearMoodSoon("happy", 900);
   };
 
   const explode = () => {
     sounds.pop();
     setMood("exploded");
     setMsg("");
-    setPopScore((s) => s + 1);
     comboCount.current = 0;
     setComboMeter(0);
 
-    const skin = SKINS[skinIdxRef.current];
+    const theme = CHASSIS_THEMES[themeIdx];
     const cx = phys.current.x;
     const cy = phys.current.y;
-    const n = 18;
+    const n = 22;
     const parts = Array.from({ length: n }).map((_, i) => {
       const angle = (Math.PI * 2 * i) / n + Math.random() * 0.3;
-      const dist = 60 + Math.random() * 110;
+      const dist = 70 + Math.random() * 120;
       return {
         id: Date.now() + i,
         x: cx,
         y: cy,
         tx: Math.cos(angle) * dist,
         ty: Math.sin(angle) * dist - 30,
-        color: skin.particles[i % skin.particles.length],
-        size: 9 + Math.random() * 18,
+        color: theme.particles[i % theme.particles.length],
+        size: 8 + Math.random() * 16,
       };
     });
     setParticles(parts);
     setTimeout(() => setParticles([]), 950);
 
     if (wrapRef.current) {
-      wrapRef.current.style.animation = "glubShake 0.4s ease";
+      wrapRef.current.style.animation = "emoShake 0.4s ease";
       setTimeout(() => {
         if (wrapRef.current) wrapRef.current.style.animation = "";
       }, 400);
@@ -543,14 +444,15 @@ export default function BlobCompanion() {
     setTimeout(() => {
       const b = bounds.current;
       phys.current.x = (b.left + b.right) / 2;
-      phys.current.y = b.bottom - HALF;
+      phys.current.y = b.bottom - robotSize.h / 2;
       phys.current.scaleX = 0.05;
       phys.current.scaleY = 0.05;
       sounds.reform();
       setMood("idle");
-      setMsg(["*Pop* I'm back in one piece!", "That was intense!", "Reassembled! 🦾"][Math.floor(Math.random() * 3)]);
+      setMsg("Reboot complete! All live APIs linked! 🦾✨");
+      speakText("Systems online!");
       markInteraction();
-    }, 900);
+    }, 950);
   };
 
   const nearestEdge = () => {
@@ -569,10 +471,12 @@ export default function BlobCompanion() {
 
   const edgeTarget = (edge) => {
     const b = bounds.current;
-    if (edge === "left") return { x: b.left + HALF * 0.55, y: phys.current.y };
-    if (edge === "right") return { x: b.right - HALF * 0.55, y: phys.current.y };
-    if (edge === "top") return { x: phys.current.x, y: b.top + HALF * 0.55 };
-    return { x: phys.current.x, y: b.bottom - HALF * 0.55 };
+    const halfW = robotSize.w / 2;
+    const halfH = robotSize.h / 2;
+    if (edge === "left") return { x: b.left + halfW * 0.6, y: phys.current.y };
+    if (edge === "right") return { x: b.right - halfW * 0.6, y: phys.current.y };
+    if (edge === "top") return { x: phys.current.x, y: b.top + halfH * 0.6 };
+    return { x: phys.current.x, y: b.bottom - halfH * 0.6 };
   };
 
   const unstick = (early) => {
@@ -582,7 +486,7 @@ export default function BlobCompanion() {
     phys.current.vx = edge === "left" ? 6 : edge === "right" ? -6 : (Math.random() - 0.5) * 5;
     phys.current.vy = edge === "top" ? 5 : -4;
     setMood("idle");
-    setMsg(["Ouchie!", "Gentle throws please!", "Eep!"][Math.floor(Math.random() * 3)]);
+    setMsg("Gentle throws please! 🤖");
     if (!early) sounds.chirp();
   };
 
@@ -598,89 +502,473 @@ export default function BlobCompanion() {
     stuckTarget.current = edgeTarget(edge);
     phys.current.stuck = true;
     phys.current.held = false;
-    pulseSquish(edge === "left" || edge === "right" ? 0.5 : 1.3, edge === "left" || edge === "right" ? 1.3 : 0.5);
+    pulseSquish(edge === "left" || edge === "right" ? 0.5 : 1.25, edge === "left" || edge === "right" ? 1.25 : 0.5);
     if (unstickTimer.current) clearTimeout(unstickTimer.current);
-    unstickTimer.current = setTimeout(() => unstick(false), 2400);
+    unstickTimer.current = setTimeout(() => unstick(false), 2200);
   };
 
-  const goToSleep = (auto = false) => {
-    sleepyMeter.current = 0;
-    sounds.yawn();
-    setMood("asleep");
-    setMsg(auto ? "*dozed off* zzz" : "Nighty night... 💤");
+  const triggerPoke = () => {
+    const now = performance.now();
+    if (now - lastTapTime.current < 650) comboCount.current += 1;
+    else comboCount.current = 1;
+    lastTapTime.current = now;
+    setComboMeter(comboCount.current);
+
+    if (comboCount.current >= EXPLODE_THRESHOLD) {
+      if (doubleTapTimer.current) clearTimeout(doubleTapTimer.current);
+      explode();
+      return;
+    }
+
+    const pitchBoost = Math.min(comboCount.current * 45, 500);
+    sounds.poke(pitchBoost);
+    const squash = Math.min(0.18 + comboCount.current * 0.03, 0.42);
+    pulseSquish(1 + squash, 1 - squash);
+
+    if (comboCount.current === 1) {
+      setMsg(["Boop!", "Hehe!", "Beep boop!", "Online!"][Math.floor(Math.random() * 4)]);
+      setMood("happy");
+      clearMoodSoon("happy", 450);
+    } else if (comboCount.current === 2) {
+      if (doubleTapTimer.current) clearTimeout(doubleTapTimer.current);
+      doubleTapTimer.current = setTimeout(() => {
+        if (comboCount.current === 2) triggerKiss();
+      }, 300);
+    } else {
+      if (doubleTapTimer.current) clearTimeout(doubleTapTimer.current);
+      if (comboCount.current <= 5) setMsg(["Tickles!", "Again?!", "Whoa!"][Math.floor(Math.random() * 3)]);
+      else if (comboCount.current <= 8) setMsg(["Overheating...", "Stop tickling haha!"][Math.floor(Math.random() * 2)]);
+      else setMsg(["Critical overload! 💥", "Gonna burst!"][Math.floor(Math.random() * 2)]);
+      setMood("happy");
+      clearMoodSoon("happy", 450);
+    }
   };
 
-  // Ball Pointer Handlers
-  const onBallPointerDown = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
+  // --- LIVE PUBLIC API INTEGRATIONS ---
+
+  // 1. Open-Meteo Weather API
+  const fetchLiveWeather = async () => {
+    setMsg("Connecting to Open-Meteo orbital satellite... 🛰️");
+    setMood("surprised");
+    sounds.chirp();
     try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {}
-    markInteraction();
-    ballPhys.current.held = true;
-    ballPhys.current.vx = 0;
-    ballPhys.current.vy = 0;
-    ballPhys.current.lastHitBy = "player";
-    const now = performance.now();
-    ballDragStart.current = {
-      x: e.clientX,
-      y: e.clientY,
-      time: now,
-      ballX: ballPhys.current.x,
-      ballY: ballPhys.current.y,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      lastTime: now,
+      const getCoords = () =>
+        new Promise((resolve) => {
+          if (typeof window !== "undefined" && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
+              () => resolve({ lat: 24.86, lon: 67.0 })
+            );
+          } else {
+            resolve({ lat: 24.86, lon: 67.0 });
+          }
+        });
+
+      const coords = await getCoords();
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,weather_code`);
+      const data = await res.json();
+      const temp = Math.round(data.current.temperature_2m);
+      const code = data.current.weather_code;
+
+      let cond = "Clear Skies ☀️";
+      if (code >= 51 && code <= 67) cond = "Rainy / Showers 🌧️";
+      else if (code >= 71 && code <= 77) cond = "Snow / Chill ❄️";
+      else if (code >= 1 && code <= 3) cond = "Partly Cloudy ⛅";
+
+      setMood("happy");
+      setMsg(`Live Satellite: ${temp}°C, ${cond}`);
+      speakText(`Live satellite report. It is ${temp} degrees celsius with ${cond}.`);
+    } catch {
+      setMsg("Weather satellite offline! 📡");
+    }
+  };
+
+  // 2. JokeAPI
+  const fetchLiveJoke = async () => {
+    setMsg("Fetching certified fresh joke from JokeAPI... 📡");
+    sounds.chirp();
+    try {
+      const res = await fetch("https://v2.jokeapi.dev/joke/Programming,Pun?blacklistFlags=nsfw,racist,sexist");
+      const data = await res.json();
+      setMood("happy");
+      if (data.type === "twopart") {
+        setMsg(`${data.setup} ... ${data.delivery} 😂`);
+        speakText(`${data.setup}... ${data.delivery}`);
+      } else {
+        setMsg(`${data.joke} 😂`);
+        speakText(data.joke);
+      }
+      sounds.giggle();
+    } catch {
+      setMsg("Why did the API cross the road? To return 200 OK! 😂");
+      sounds.giggle();
+    }
+  };
+
+  // 3. OpenTDB Live Trivia API
+  const fetchLiveTrivia = async () => {
+    setMsg("Dialing Open Trivia Database... 🧠");
+    sounds.chirp();
+    try {
+      const res = await fetch("https://opentdb.com/api.php?amount=1&type=multiple");
+      const data = await res.json();
+      const item = data.results[0];
+
+      const parser = new DOMParser();
+      const question = parser.parseFromString(item.question, "text/html").body.textContent;
+      const correct = parser.parseFromString(item.correct_answer, "text/html").body.textContent;
+      const allChoices = [...item.incorrect_answers.map((ans) => parser.parseFromString(ans, "text/html").body.textContent), correct].sort(() => Math.random() - 0.5);
+
+      setLiveQuiz({ question, correct, choices: allChoices });
+      setMood("surprised");
+      setMsg(`Trivia: ${question}`);
+      speakText(`Trivia time! ${question}`);
+    } catch {
+      setMsg("Trivia link offline. Try again!");
+    }
+  };
+
+  // 4. PokéAPI Scanner
+  const fetchPokemon = async (queryName) => {
+    const name = queryName ? queryName.trim().toLowerCase() : ["pikachu", "charizard", "gengar", "mewtwo", "eevee", "lucario"][Math.floor(Math.random() * 6)];
+    setMsg(`Pokédex Scanning ${name.toUpperCase()}... 🔍⚡`);
+    sounds.chirp();
+    try {
+      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+      if (!res.ok) throw new Error("Pokemon not found");
+      const data = await res.json();
+      const sprite = data.sprites.front_default;
+      const types = data.types.map((t) => t.type.name).join("/");
+      const height = data.height / 10;
+      const weight = data.weight / 10;
+
+      setPokemonCard({ name: data.name.toUpperCase(), sprite, types, height, weight });
+      setMood("happy");
+      setMsg(`#${data.id} ${data.name.toUpperCase()} (${types}) | H:${height}m W:${weight}kg`);
+      speakText(`Pokédex identified ${data.name}. Type ${types}.`);
+      sounds.boing();
+      setTimeout(() => setPokemonCard(null), 8000);
+    } catch {
+      setMsg(`Pokédex: Target "${name}" not found in Kanto/Johto registry!`);
+    }
+  };
+
+  // 5. NASA APOD Space Scan API (Cleaned and Fixed)
+  const fetchNasaSpaceScan = async () => {
+    setMsg("Scanning deep space via NASA APOD satellite... 🌌🔭");
+    setMood("surprised");
+    sounds.laserBeep();
+    try {
+      const res = await fetch("https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY");
+      const data = await res.json();
+      setMood("happy");
+      setMsg(`NASA Scan: ${data.title} (${data.date}) ✨`);
+      speakText(`Deep space scan complete. Today's discovery is: ${data.title}`);
+      sounds.chirp();
+    } catch {
+      setMsg("Deep space sensor telemetry failed!");
+    }
+  };
+
+  // 6. Free Dictionary API
+  const fetchWordDefinition = async (word) => {
+    const targetWord = word ? word.trim().toLowerCase() : "serendipity";
+    setMsg(`Lexicon lookup for "${targetWord}"... 📖`);
+    sounds.chirp();
+    try {
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${targetWord}`);
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error("Not found");
+      const definition = data[0].meanings[0].definitions[0].definition;
+      const pos = data[0].meanings[0].partOfSpeech;
+
+      setMood("happy");
+      setMsg(`${targetWord} (${pos}): ${definition}`);
+      speakText(`${targetWord}, ${pos}. ${definition}`);
+    } catch {
+      setMsg(`Lexicon: Word "${targetWord}" not found.`);
+    }
+  };
+
+  // Memory Matrix Game
+  const startSimonGame = () => {
+    const colors = ["🔵", "🟢", "🟡", "🔴"];
+    const sequence = [colors[Math.floor(Math.random() * 4)], colors[Math.floor(Math.random() * 4)], colors[Math.floor(Math.random() * 4)]];
+    setSimonGame({ sequence, step: 0 });
+    setMood("surprised");
+    setMsg(`Remember: ${sequence.join(" ")}`);
+    speakText("Watch and remember the sequence!");
+    setTimeout(() => {
+      setMsg("Now repeat the sequence!");
+    }, 3500);
+  };
+
+  // Voice Command Dispatcher
+  const handleVoiceCommand = useCallback(
+    (commandText) => {
+      const txt = commandText.toLowerCase();
+      markInteraction();
+
+      if (txt.includes("weather") || txt.includes("temperature") || txt.includes("forecast")) {
+        fetchLiveWeather();
+      } else if (txt.includes("joke") || txt.includes("pun")) {
+        fetchLiveJoke();
+      } else if (txt.includes("trivia") || txt.includes("quiz")) {
+        fetchLiveTrivia();
+      } else if (txt.includes("pokedex") || txt.includes("pokemon") || txt.includes("scan")) {
+        const words = txt.split(" ");
+        const pokeIdx = words.findIndex((w) => w === "pokemon" || w === "pokedex" || w === "scan");
+        const specificName = pokeIdx !== -1 && words[pokeIdx + 1] ? words[pokeIdx + 1] : null;
+        fetchPokemon(specificName);
+      } else if (txt.includes("space") || txt.includes("nasa") || txt.includes("galaxy") || txt.includes("cosmos")) {
+        fetchNasaSpaceScan();
+      } else if (txt.includes("define") || txt.includes("meaning") || txt.includes("dictionary")) {
+        const words = txt.split(" ");
+        const defIdx = words.findIndex((w) => w === "define" || w === "meaning");
+        const targetWord = defIdx !== -1 && words[defIdx + 1] ? words[defIdx + 1] : "serendipity";
+        fetchWordDefinition(targetWord);
+      } else if (txt.includes("time") || txt.includes("clock")) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setClockDisplay(timeStr);
+        setMood("happy");
+        setMsg(`It's ${timeStr}! ⏰`);
+        speakText(`It is ${timeStr}`);
+        sounds.boing();
+        setTimeout(() => setClockDisplay(null), 8000);
+      } else if (txt.includes("feeling") || txt.includes("mood") || txt.includes("status")) {
+        setMood("happy");
+        setMsg(`Affection: ${affection}% | Energy: ${energy}% ⚡ Feeling fantastic!`);
+        speakText(`My bio-metrics are nominal and affection is at ${affection} percent.`);
+      } else if (txt.includes("simon") || txt.includes("memory")) {
+        startSimonGame();
+      } else if (txt.includes("dance") || txt.includes("music") || txt.includes("party")) {
+        setMood("dancing");
+        setDiscoActive(true);
+        setMsg("DJ EMO in the house! 🎶🕺");
+        speakText("Let's dance!");
+        sounds.playDanceBeat();
+        setTimeout(() => {
+          sounds.stopMusic();
+          setDiscoActive(false);
+          setMood("idle");
+          setMsg("That was electric! ✨");
+        }, 9000);
+      } else if (txt.includes("beatbox") || txt.includes("drop a beat")) {
+        setMood("dancing");
+        setMsg("Boots and cats and boots and cats! 🎧");
+        speakText("Check this beat!");
+        sounds.beatbox();
+        setTimeout(() => setMood("idle"), 2500);
+      } else if (txt.includes("lullaby") || txt.includes("sleep song")) {
+        setMood("sleepy");
+        setMsg("Playing soothing frequencies... 🎶💤");
+        sounds.playLullaby();
+        setTimeout(() => sounds.stopMusic(), 8000);
+      } else if (txt.includes("siren") || txt.includes("alarm") || txt.includes("alert")) {
+        setMood("scared");
+        setMsg("RED ALERT! 🚨🚨");
+        speakText("Alert! Emergency protocol engaged!");
+        sounds.siren();
+        clearMoodSoon("scared", 2500);
+      } else if (txt.includes("hypno") || txt.includes("dizzy")) {
+        setMood("hypno");
+        setMsg("You are getting sleepy... 🌀");
+        speakText("Hypnosis protocol engaged!");
+        clearMoodSoon("hypno", 4000);
+      } else if (txt.includes("sad") || txt.includes("cry")) {
+        setMood("sad");
+        setMsg("Aww... need a virtual hug? 🥺");
+        speakText("I am feeling a little down today.");
+        clearMoodSoon("sad", 4000);
+      } else if (txt.includes("timer") || txt.includes("focus")) {
+        setGameOverlay("Focus Mode: 5:00 ⏱️");
+        setMood("happy");
+        setMsg("5 minute focus timer started! 🎯");
+        speakText("Focus timer started. Let's do this!");
+        setTimeout(() => setGameOverlay(null), 5000);
+      } else if (txt.includes("secret")) {
+        const sec = SECRETS[Math.floor(Math.random() * SECRETS.length)];
+        setMood("surprised");
+        setMsg(sec);
+        speakText(sec);
+      } else if (txt.includes("compliment") || txt.includes("praise")) {
+        const comp = COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)];
+        setMood("happy");
+        setAffection((a) => Math.min(100, a + 5));
+        setMsg(comp);
+        speakText(comp);
+        sounds.chirp();
+      } else if (txt.includes("angry") || txt.includes("mad")) {
+        setMood("angry");
+        setMsg("Grrr! EMO is angry! 😡🔥");
+        speakText("Do not test my limits!");
+        sounds.gasp();
+        clearMoodSoon("angry", 4000);
+      } else if (txt.includes("matrix") || txt.includes("hacker")) {
+        setThemeIdx(2);
+        setMatrixActive(true);
+        setMood("happy");
+        setMsg("Matrix Data Stream Active... 🟢🕶️");
+        speakText("Wake up, Neo.");
+        setTimeout(() => setMatrixActive(false), 8000);
+      } else if (txt.includes("math") || txt.includes("duel")) {
+        const n1 = Math.floor(Math.random() * 12) + 2;
+        const n2 = Math.floor(Math.random() * 12) + 2;
+        const ans = n1 * n2;
+        setGameOverlay(`Math: What is ${n1} × ${n2}?`);
+        setMood("surprised");
+        setMsg(`Quick! What is ${n1} times ${n2}? (Answer: ${ans}) 🧮`);
+        speakText(`What is ${n1} times ${n2}?`);
+        setTimeout(() => setGameOverlay(null), 6000);
+      } else if (txt.includes("rock") || txt.includes("paper") || txt.includes("scissors") || txt.includes("rps")) {
+        const choices = ["Rock 🪨", "Paper 📄", "Scissors ✂️"];
+        const emoChoice = choices[Math.floor(Math.random() * 3)];
+        setGameOverlay(`EMO chose: ${emoChoice}`);
+        setMood("happy");
+        setMsg(`I play ${emoChoice}!`);
+        speakText(`I choose ${emoChoice}`);
+        setTimeout(() => setGameOverlay(null), 4000);
+      } else if (txt.includes("fortune") || txt.includes("predict") || txt.includes("future") || txt.includes("will i")) {
+        const ans = FORTUNE_ANSWERS[Math.floor(Math.random() * FORTUNE_ANSWERS.length)];
+        setMood("surprised");
+        setMsg(`8-Ball says: ${ans}`);
+        speakText(ans);
+        sounds.chirp();
+      } else if (txt.includes("dice") || txt.includes("roll")) {
+        const roll = Math.floor(Math.random() * 6) + 1;
+        setMood("happy");
+        setMsg(`You rolled a ${roll}! 🎲`);
+        speakText(`You rolled a ${roll}`);
+        sounds.boing();
+      } else if (txt.includes("coin") || txt.includes("flip")) {
+        const coin = Math.random() < 0.5 ? "Heads 🪙" : "Tails 🪙";
+        setMood("happy");
+        setMsg(`It's ${coin}!`);
+        speakText(`It is ${coin}`);
+        sounds.whee();
+      } else if (txt.includes("soccer") || txt.includes("football") || txt.includes("ball")) {
+        setActiveToy("ball");
+        ballPhys.current.active = true;
+        setMood("happy");
+        setMsg("Soccer match on! Kick it! ⚽");
+        speakText("Soccer match started!");
+      } else if (txt.includes("laser") || txt.includes("hunt")) {
+        setActiveToy("laser");
+        setMood("surprised");
+        setMsg("Target acquired! Tracking laser 🔴");
+        speakText("Tracking laser!");
+      } else if (txt.includes("sleep") || txt.includes("night") || txt.includes("tired")) {
+        setMood("asleep");
+        setMsg("Powering down... Zzz 💤");
+        speakText("Goodnight!");
+        sounds.yawn();
+      } else if (txt.includes("wake") || txt.includes("hello") || txt.includes("hi") || txt.includes("emo")) {
+        setMood("happy");
+        setMsg("I'm awake and ready! ✨");
+        speakText("Hello there!");
+        sounds.wake();
+      } else if (txt.includes("gravity") || txt.includes("fly") || txt.includes("space")) {
+        gravityDir.current *= -1;
+        setMsg(gravityDir.current < 0 ? "Antigravity active! 🛸" : "Normal gravity! 🌍");
+        sounds.jump();
+      } else if (txt.includes("love") || txt.includes("cute") || txt.includes("kiss")) {
+        triggerKiss();
+      } else if (txt.includes("explode") || txt.includes("boom") || txt.includes("destruct")) {
+        explode();
+      } else {
+        setMood("happy");
+        setMsg(`Heard: "${commandText}" ⚡`);
+        sounds.talkBeep();
+      }
+    },
+    [sounds, speakText, themeIdx, affection, energy]
+  );
+
+  const toggleListening = () => {
+    if (typeof window === "undefined") return;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Try Chrome or Edge!");
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setMsg("Listening... Speak now! 🎙️");
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        handleVoiceCommand(transcript);
+        setIsListening(false);
+      };
+
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+  };
+
+  // Responsive boundary setup
+  useEffect(() => {
+    const updateBounds = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const isMobile = w < 640;
+      const rw = isMobile ? 150 : 185;
+      const rh = isMobile ? 135 : 165;
+      setRobotSize({ w: rw, h: rh });
+
+      bounds.current = { left: PAD, top: PAD + 60, right: w - PAD, bottom: h - PAD - 80 };
+      if (phys.current.x === 200 && phys.current.y === 300) {
+        phys.current.x = w / 2;
+        phys.current.y = h / 2;
+        followTarget.current = { x: phys.current.x, y: phys.current.y };
+        ballPhys.current.x = w / 2 - 60;
+        ballPhys.current.y = h / 2 - 40;
+      }
     };
-  };
+    updateBounds();
+    window.addEventListener("resize", updateBounds);
 
-  const onBallPointerMove = (e) => {
-    if (!ballPhys.current.held) return;
-    markInteraction();
-    const now = performance.now();
-    ballPhys.current.x = e.clientX;
-    ballPhys.current.y = e.clientY;
+    const onPointerMove = (e) => {
+      const clientX = e.touches && e.touches.length ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches && e.touches.length ? e.touches[0].clientY : e.clientY;
+      if (activeToyRef.current === "laser") setLaserPos({ x: clientX, y: clientY });
+    };
 
-    const dt = Math.max(now - ballDragStart.current.lastTime, 1);
-    ballPhys.current.vx = ((e.clientX - ballDragStart.current.lastX) / dt) * 16;
-    ballPhys.current.vy = ((e.clientY - ballDragStart.current.lastY) / dt) * 16;
+    window.addEventListener("mousemove", onPointerMove);
+    window.addEventListener("touchmove", onPointerMove, { passive: true });
 
-    ballDragStart.current.lastX = e.clientX;
-    ballDragStart.current.lastY = e.clientY;
-    ballDragStart.current.lastTime = now;
-  };
+    return () => {
+      window.removeEventListener("resize", updateBounds);
+      window.removeEventListener("mousemove", onPointerMove);
+      window.removeEventListener("touchmove", onPointerMove);
+    };
+  }, []);
 
-  const onBallPointerUp = () => {
-    if (!ballPhys.current.held) return;
-    ballPhys.current.held = false;
-    ballPhys.current.lastHitBy = "player";
-    sounds.whee();
-  };
-
-  // Background pointer handlers to support laser dot touching on phones
-  const onCanvasPointerDown = (e) => {
-    if (activeToyRef.current === "laser") {
-      setLaserPos({ x: e.clientX, y: e.clientY });
-      sounds.laserBeep();
-    }
-  };
-
-  const onCanvasPointerMove = (e) => {
-    if (activeToyRef.current === "laser") {
-      setLaserPos({ x: e.clientX, y: e.clientY });
-    }
-  };
-
-  // Blob Pointer Handlers
+  // Petting & Pointer Handlers
   const onPointerDown = (e) => {
     if (moodRef.current === "exploded") return;
     e.preventDefault();
     try {
-      blobRef.current?.setPointerCapture(e.pointerId);
+      robotRef.current?.setPointerCapture(e.pointerId);
     } catch {}
     const now = performance.now();
-    forceReleased.current = false;
     markInteraction();
 
     if (phys.current.stuck) {
@@ -708,14 +996,14 @@ export default function BlobCompanion() {
   };
 
   const onPointerMove = (e) => {
-    if (!phys.current.held || forceReleased.current) return;
+    if (!phys.current.held) return;
     markInteraction();
     const now = performance.now();
     const dx = e.clientX - lastMove.current.x;
     const dy = e.clientY - lastMove.current.y;
     const distFromStart = Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y);
 
-    if (distFromStart < 50) {
+    if (distFromStart < 55) {
       followTarget.current = {
         x: dragStart.current.blobX + (e.clientX - dragStart.current.x) * 0.35,
         y: dragStart.current.blobY + (e.clientY - dragStart.current.y) * 0.35,
@@ -723,19 +1011,26 @@ export default function BlobCompanion() {
       const moveMag = Math.hypot(dx, dy);
       rubAccum.current += moveMag;
       totalWiggle.current += moveMag;
-      if (rubAccum.current > 32) {
+
+      if (rubAccum.current > 28) {
         rubAccum.current = 0;
-        sleepyMeter.current += 6;
+        sleepyMeter.current += 7;
+        setAffection((a) => Math.min(100, a + 1));
         pulseSquish(1.12, 0.9);
-        if (now - lastSoundTime.current > 250) {
+
+        if (now - lastSoundTime.current > 240) {
           sounds.giggle();
           lastSoundTime.current = now;
           if (moodRef.current !== "asleep") {
             setMood(sleepyMeter.current > 50 ? "sleepy" : "happy");
-            setMsg(sleepyMeter.current > 50 ? "So cozy... 🥱" : "Hehehe~");
+            setMsg(sleepyMeter.current > 50 ? "So relaxing... 🥱" : "*purrs happily* 💕");
           }
         }
-        if (sleepyMeter.current >= 100) goToSleep(false);
+        if (sleepyMeter.current >= 100) {
+          setMood("asleep");
+          sounds.yawn();
+          setMsg("Goodnight... 💤");
+        }
       }
     } else {
       followTarget.current = { x: e.clientX - pointerOffset.current.dx, y: e.clientY - pointerOffset.current.dy };
@@ -748,7 +1043,7 @@ export default function BlobCompanion() {
   };
 
   const onPointerUp = (e) => {
-    if (!phys.current.held || forceReleased.current) return;
+    if (!phys.current.held) return;
     phys.current.held = false;
     markInteraction();
     const now = performance.now();
@@ -756,14 +1051,14 @@ export default function BlobCompanion() {
     const totalDist = Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y);
     const speed = totalDist / Math.max(duration, 1);
 
-    if (totalDist < 12 && duration < 240) {
+    if (totalDist < 14 && duration < 240) {
       triggerPoke();
-    } else if (duration < 180 && totalDist > 32 && speed > 0.35) {
+    } else if (duration < 200 && totalDist > 32 && speed > 0.35) {
       triggerHit();
-    } else if (totalDist < 50) {
+    } else if (totalDist < 45) {
       sounds.boing();
-      pulseSquish(1.4, 0.65);
-      setMsg(["Squishy squish!", "That felt great!", "Hehe!"][Math.floor(Math.random() * 3)]);
+      pulseSquish(1.22, 0.78);
+      setMsg(["Robot hugs!", "Squishy!", "Purrr~"][Math.floor(Math.random() * 3)]);
       phys.current.vx = 0;
       phys.current.vy = 0;
       setMood("happy");
@@ -771,17 +1066,17 @@ export default function BlobCompanion() {
     } else {
       sounds.whee();
       setMood("surprised");
-      setMsg("Flying Glub! 🎈");
+      setMsg("Airborne EMO! 🛸");
       clearMoodSoon("surprised", 650);
     }
   };
 
-  // Main Loop
+  // Main Animation & Physics Loop
   useEffect(() => {
     let blinkTimer = setTimeout(function loopBlink() {
       setBlink(true);
       setTimeout(() => setBlink(false), 120);
-      blinkTimer = setTimeout(loopBlink, 2200 + Math.random() * 3400);
+      blinkTimer = setTimeout(loopBlink, 2500 + Math.random() * 3000);
     }, 2000);
 
     const tick = () => {
@@ -789,17 +1084,18 @@ export default function BlobCompanion() {
       const bp = ballPhys.current;
       const b = bounds.current;
       const now = performance.now();
-
       const grav = BASE_GRAVITY * gravityDir.current;
+      const halfW = robotSize.w / 2;
+      const halfH = robotSize.h / 2;
 
-      // 1. UPDATE BLOB PHYSICS & AI
+      // 1. Robot Physics
       if (moodRef.current !== "exploded") {
         if (p.stuck) {
           p.x += (stuckTarget.current.x - p.x) * 0.35;
           p.y += (stuckTarget.current.y - p.y) * 0.35;
           p.vx = 0;
           p.vy = 0;
-        } else if (p.held && !forceReleased.current) {
+        } else if (p.held) {
           const nvx = (followTarget.current.x - p.x) * FOLLOW_SPRING;
           const nvy = (followTarget.current.y - p.y) * FOLLOW_SPRING;
           p.x += nvx;
@@ -810,50 +1106,39 @@ export default function BlobCompanion() {
           const heldElapsed = now - dragStart.current.time;
           const distFromStart = Math.hypot(lastMove.current.x - dragStart.current.x, lastMove.current.y - dragStart.current.y);
 
-          if (distFromStart < 25 && totalWiggle.current < 15 && heldElapsed > 180) {
+          if (distFromStart < 22 && totalWiggle.current < 12 && heldElapsed > 180) {
             const sf = Math.min((heldElapsed - 180) / 450, 1);
-            p.scaleX = 1 + sf * 0.4;
-            p.scaleY = 1 - sf * 0.45;
+            p.scaleX = 1 + sf * 0.28;
+            p.scaleY = 1 - sf * 0.32;
             if (now - lastSqueakTime.current > 360) {
               lastSqueakTime.current = now;
               sounds.squeak();
             }
           }
         } else {
-          // Autonomous Goal Striker / Laser AI
-          if (activeToyRef.current === "ball" && bp.active && !bp.held && !goalCooldown.current) {
+          if (activeToyRef.current === "ball" && bp.active && !bp.held) {
             const bdx = bp.x - p.x;
-            const bdy = bp.y - p.y;
-            const distToBall = Math.hypot(bdx, bdy);
-
-            // Glub actively moves to kick or head the ball towards the player's goal
-            if (distToBall < 480) {
-              p.vx += (bdx / distToBall) * 0.65;
-              if (bdy < -30 && Math.abs(p.y - (b.bottom - HALF)) < 25 && Math.random() < 0.08) {
+            const dist = Math.hypot(bdx, bp.y - p.y);
+            if (dist < 440) {
+              p.vx += (bdx / dist) * 0.75;
+              if (bp.y < p.y - 20 && Math.abs(p.y - (b.bottom - halfH)) < 25 && Math.random() < 0.05) {
                 p.vy = -12 * gravityDir.current;
                 sounds.jump();
               }
             }
           } else if (activeToyRef.current === "laser" && laserPos) {
             const ldx = laserPos.x - p.x;
-            const ldy = laserPos.y - p.y;
-            const ldist = Math.hypot(ldx, ldy);
-            if (ldist > 25 && ldist < 700) {
+            const ldist = Math.hypot(ldx, laserPos.y - p.y);
+            if (ldist > 30 && ldist < 550) {
               p.vx += (ldx / ldist) * 0.85;
-              if (ldy < -30 && Math.abs(p.y - (b.bottom - HALF)) < 25) {
-                p.vy = -11 * gravityDir.current;
-                sounds.laserBeep();
-              }
             }
           }
 
-          // Gravity & movement
           p.vy += grav;
           p.x += p.vx;
           p.y += p.vy;
           p.vx *= AIR_FRICTION;
 
-          // Screaming on fast falls
           if (!p.stuck && Math.abs(p.vy) > 16 && moodRef.current !== "scared" && moodRef.current !== "asleep" && !hasScreamed.current) {
             hasScreamed.current = true;
             sounds.scream();
@@ -861,151 +1146,83 @@ export default function BlobCompanion() {
             setMsg("AAAAHHH! 💨");
           }
 
-          // Floor / Ceiling Bounce
-          const floorY = gravityDir.current > 0 ? b.bottom - HALF : b.top + HALF;
-          const hitFloor = gravityDir.current > 0 ? p.y > floorY : p.y < floorY;
-
-          if (hitFloor) {
+          const floorY = gravityDir.current > 0 ? b.bottom - halfH : b.top + halfH;
+          if (gravityDir.current > 0 ? p.y > floorY : p.y < floorY) {
             p.y = floorY;
             if (Math.abs(p.vy) > 2) {
-              pulseSquish(1.3, 0.65);
+              pulseSquish(1.25, 0.7);
               sounds.land();
             }
             p.vy = -p.vy * FLOOR_BOUNCE;
             if (Math.abs(p.vy) < 1.2) p.vy = 0;
-            p.vx *= 0.86;
+            p.vx *= 0.88;
             if (hasScreamed.current) {
               hasScreamed.current = false;
-              if (moodRef.current === "falling") {
-                setMood("idle");
-                setMsg("Landed safely! 🎯");
-              }
+              if (moodRef.current === "falling") setMood("idle");
             }
           }
 
-          // Left/Right Walls
-          if (p.x < b.left + HALF) {
-            p.x = b.left + HALF;
+          if (p.x < b.left + halfW) {
+            p.x = b.left + halfW;
             p.vx = -p.vx * WALL_BOUNCE;
           }
-          if (p.x > b.right - HALF) {
-            p.x = b.right - HALF;
+          if (p.x > b.right - halfW) {
+            p.x = b.right - halfW;
             p.vx = -p.vx * WALL_BOUNCE;
-          }
-
-          const ceilingY = gravityDir.current > 0 ? b.top + HALF : b.bottom - HALF;
-          if (gravityDir.current > 0 ? p.y < ceilingY : p.y > ceilingY) {
-            p.y = ceilingY;
-            p.vy = -p.vy * WALL_BOUNCE;
           }
         }
 
-        // Recovery toward circular
-        let targetSX = 1,
-          targetSY = 1;
-        if (now < growUntil.current) {
-          targetSX = 1.3;
-          targetSY = 1.3;
-        } else if (!p.held && !p.stuck) {
-          const breathe = Math.sin(now / 450) * (moodRef.current === "asleep" ? 0.035 : 0.018);
-          targetSX = 1 - breathe;
-          targetSY = 1 + breathe;
-        }
-        p.scaleX += (targetSX - p.scaleX) * RECOVERY;
-        p.scaleY += (targetSY - p.scaleY) * RECOVERY;
-
-        // Rotation settle
-        if (spinUntil.current > now) {
-          p.rotation += 22 * spinAxisSign.current;
+        if (moodRef.current === "dancing") {
+          p.danceOffset = Math.sin(now / 90) * 10;
+          p.rotation = Math.sin(now / 180) * 12;
         } else {
-          const nearest = Math.round(p.rotation / 360) * 360;
-          p.rotation += (nearest - p.rotation) * 0.2;
+          p.danceOffset = 0;
+          p.rotation += (0 - p.rotation) * 0.15;
         }
 
-        if (blobRef.current) {
-          blobRef.current.style.transform = `translate3d(${p.x - HALF}px, ${p.y - HALF}px, 0) rotate(${p.rotation}deg) scale(${p.scaleX}, ${p.scaleY})`;
+        p.scaleX += (1 - p.scaleX) * RECOVERY;
+        p.scaleY += (1 - p.scaleY) * RECOVERY;
+
+        if (robotRef.current) {
+          robotRef.current.style.transform = `translate3d(${p.x - halfW}px, ${p.y - halfH + p.danceOffset}px, 0) rotate(${p.rotation}deg) scale(${p.scaleX}, ${p.scaleY})`;
         }
       }
 
-      // 2. UPDATE SOCCER BALL PHYSICS & GOAL DETECTION
-      if (activeToyRef.current === "ball" && bp.active) {
-        if (!bp.held) {
-          bp.vy += grav * 0.88;
-          bp.x += bp.vx;
-          bp.y += bp.vy;
-          bp.vx *= 0.992;
+      // 2. Soccer Ball Physics
+      if (activeToyRef.current === "ball" && bp.active && !bp.held) {
+        bp.vy += grav * 0.88;
+        bp.x += bp.vx;
+        bp.y += bp.vy;
+        bp.vx *= 0.99;
 
-          const goalTop = b.bottom - 170;
-          const inGoalHeight = bp.y > goalTop && bp.y < b.bottom;
+        if (bp.x < b.left + BALL_RADIUS) {
+          bp.x = b.left + BALL_RADIUS;
+          bp.vx = -bp.vx * 0.8;
+        }
+        if (bp.x > b.right - BALL_RADIUS) {
+          bp.x = b.right - BALL_RADIUS;
+          bp.vx = -bp.vx * 0.8;
+        }
+        if (bp.y > b.bottom - BALL_RADIUS) {
+          bp.y = b.bottom - BALL_RADIUS;
+          bp.vy = -bp.vy * 0.75;
+          bp.vx *= 0.92;
+        }
 
-          // Check Left Goal
-          if (bp.x < b.left + 24 && inGoalHeight) {
-            triggerGoal(bp.lastHitBy === "player" ? "You" : "Glub");
-          } else if (bp.x < b.left + BALL_RADIUS) {
-            bp.x = b.left + BALL_RADIUS;
-            bp.vx = -bp.vx * 0.8;
-          }
+        if (moodRef.current !== "exploded") {
+          const bdx = bp.x - p.x;
+          const bdy = bp.y - p.y;
+          const dist = Math.hypot(bdx, bdy);
+          const minDist = halfW + BALL_RADIUS;
 
-          // Check Right Goal
-          if (bp.x > b.right - 24 && inGoalHeight) {
-            triggerGoal(bp.lastHitBy === "player" ? "You" : "Glub");
-          } else if (bp.x > b.right - BALL_RADIUS) {
-            bp.x = b.right - BALL_RADIUS;
-            bp.vx = -bp.vx * 0.8;
-          }
-
-          // Floor / Ceiling
-          if (bp.y > b.bottom - BALL_RADIUS) {
-            bp.y = b.bottom - BALL_RADIUS;
-            bp.vy = -bp.vy * 0.78;
-            bp.vx *= 0.92;
-            if (Math.abs(bp.vy) < 0.6) bp.vy = 0;
-          }
-          if (bp.y < b.top + BALL_RADIUS) {
-            bp.y = b.top + BALL_RADIUS;
-            bp.vy = -bp.vy * 0.78;
-          }
-
-          // Collision: Ball <-> Glub
-          if (moodRef.current !== "exploded") {
-            const bdx = bp.x - p.x;
-            const bdy = bp.y - p.y;
-            const bdist = Math.hypot(bdx, bdy);
-            const minDist = HALF + BALL_RADIUS;
-
-            if (bdist < minDist) {
-              const nx = bdx / (bdist || 1);
-              const ny = bdy / (bdist || 1);
-              const overlap = minDist - bdist;
-
-              bp.x += nx * overlap;
-              bp.y += ny * overlap;
-
-              const relVx = bp.vx - p.vx;
-              const relVy = bp.vy - p.vy;
-              const impulse = relVx * nx + relVy * ny;
-
-              if (impulse < 0) {
-                bp.vx -= 1.65 * impulse * nx;
-                bp.vy -= 1.65 * impulse * ny;
-                p.vx += 0.75 * impulse * nx;
-                p.vy += 0.75 * impulse * ny;
-
-                bp.lastHitBy = "glub";
-                sounds.ballHit();
-                pulseSquish(1.22, 0.78);
-
-                if (Math.hypot(relVx, relVy) > 13) {
-                  setMood("surprised");
-                  setMsg(["HEADSHOT! ⚽", "Rocket shot! 🔥", "BOOM!"][Math.floor(Math.random() * 3)]);
-                  clearMoodSoon("surprised", 600);
-                } else {
-                  setMood("happy");
-                  setMsg(["Nice pass! ⚽", "Heading it back!", "Corner kick!"][Math.floor(Math.random() * 3)]);
-                  clearMoodSoon("happy", 500);
-                }
-              }
-            }
+          if (dist < minDist) {
+            const nx = bdx / (dist || 1);
+            const ny = bdy / (dist || 1);
+            bp.vx = nx * 12 + p.vx * 0.6;
+            bp.vy = ny * 12 + p.vy * 0.6;
+            sounds.ballHit();
+            pulseSquish(1.2, 0.8);
+            setMsg(["Rocket shot! ⚽", "Heading it back!", "Goal strike! 🔥"][Math.floor(Math.random() * 3)]);
           }
         }
 
@@ -1014,50 +1231,17 @@ export default function BlobCompanion() {
         }
       }
 
-      // 3. EYE TRACKING (Looks at ball, laser, or touch/mouse)
-      let targetGazeX = cursorPos.current.x;
-      let targetGazeY = cursorPos.current.y;
-
-      if (activeToyRef.current === "ball" && bp.active) {
-        targetGazeX = bp.x;
-        targetGazeY = bp.y;
-      } else if (activeToyRef.current === "laser" && laserPos) {
-        targetGazeX = laserPos.x;
-        targetGazeY = laserPos.y;
-      }
-
-      if ((moodRef.current === "idle" || moodRef.current === "happy") && !p.held && !p.stuck) {
-        const dx = targetGazeX - p.x;
-        const dy = targetGazeY - p.y;
-        const dist = Math.hypot(dx, dy) || 1;
-        const range = 5.5;
-        const ox = (dx / dist) * Math.min(range, dist / 18);
-        const oy = (dy / dist) * Math.min(range, dist / 18);
-        if (pupilLRef.current) pupilLRef.current.style.transform = `translate(${ox}px, ${oy}px)`;
-        if (pupilRRef.current) pupilRRef.current.style.transform = `translate(${ox}px, ${oy}px)`;
-      } else if (moodRef.current === "scared") {
-        const jx = (Math.random() - 0.5) * 4;
-        const jy = (Math.random() - 0.5) * 4;
-        if (pupilLRef.current) pupilLRef.current.style.transform = `translate(${jx}px, ${jy}px)`;
-        if (pupilRRef.current) pupilRRef.current.style.transform = `translate(${jx}px, ${jy}px)`;
-      }
-
-      // Snoring audio when asleep
-      if (moodRef.current === "asleep" && now - lastSnoreTime.current > 1800) {
-        lastSnoreTime.current = now;
-        sounds.snore();
-      }
-
-      // Inactivity Sleep Trigger
+      // Auto Sleep
       if (!p.held && !p.stuck && moodRef.current !== "exploded" && moodRef.current !== "falling") {
         const idleFor = now - lastInteraction.current;
-        if (idleFor > IDLE_SLEEPY_MS && idleFor < IDLE_ASLEEP_MS && moodRef.current === "idle" && !sleepyWarned.current) {
-          sleepyWarned.current = true;
+        if (idleFor > IDLE_SLEEPY_MS && idleFor < IDLE_ASLEEP_MS && moodRef.current === "idle") {
           setMood("sleepy");
           setMsg("*Yaaawn* Getting sleepy... 🥱");
         }
         if (idleFor > IDLE_ASLEEP_MS && (moodRef.current === "idle" || moodRef.current === "sleepy")) {
-          goToSleep(true);
+          setMood("asleep");
+          sounds.yawn();
+          setMsg("Zzz... 💤");
         }
       }
 
@@ -1071,249 +1255,135 @@ export default function BlobCompanion() {
       if (unstickTimer.current) clearTimeout(unstickTimer.current);
       if (doubleTapTimer.current) clearTimeout(doubleTapTimer.current);
     };
-  }, [sounds, laserPos]);
+  }, [sounds, laserPos, robotSize]);
 
-  const toggleGravity = () => {
-    gravityDir.current = gravityDir.current * -1;
-    setGravityFlipped((g) => !g);
-    sounds.whee();
-    setMsg(gravityDir.current < 0 ? "Antigravity active! 🛸" : "Gravity normalized! 🌍");
-  };
-
-  const isAsleep = mood === "asleep";
-  const isSleepy = mood === "sleepy";
-  const isScared = mood === "scared";
-  const isSurprised = mood === "surprised";
-  const isFalling = mood === "falling";
-  const isHappy = mood === "happy";
-  const isExploded = mood === "exploded";
-  const eyesClosed = blink && (mood === "idle" || mood === "happy");
-
-  const skin = SKINS[skinIdx];
-  const bodyGradient = isScared ? SCARED_GRAD : isAsleep || isSleepy ? SLEEPY_GRAD : skin.grad;
+  const currentTheme = CHASSIS_THEMES[themeIdx];
   const comboRatio = Math.min(comboMeter / EXPLODE_THRESHOLD, 1);
-  const comboColor = comboRatio < 0.5 ? "#5eead4" : comboRatio < 0.8 ? "#facc15" : "#f43f5e";
+  const comboColor = comboRatio < 0.5 ? "#38bdf8" : comboRatio < 0.8 ? "#facc15" : "#f43f5e";
 
   return (
     <div
       ref={wrapRef}
-      onPointerDown={onCanvasPointerDown}
-      onPointerMove={onCanvasPointerMove}
-      className="fixed inset-0 overflow-hidden select-none touch-none"
+      className={`fixed inset-0 overflow-hidden select-none touch-none ${discoActive ? "animate-pulse" : ""}`}
       style={{
-        background: "radial-gradient(circle at 50% 30%, #1e1b4b 0%, #0f172a 60%, #030712 100%)",
+        background: matrixActive
+          ? "radial-gradient(circle at 50% 50%, #022c22 0%, #01140e 60%, #000000 100%)"
+          : discoActive
+          ? "radial-gradient(circle at 50% 50%, #4c0519 0%, #1e1b4b 50%, #030712 100%)"
+          : "radial-gradient(circle at 50% 30%, #0f172a 0%, #020617 100%)",
         cursor: activeToy === "laser" ? "crosshair" : "default",
       }}
-      tabIndex={-1}
     >
       <style>{`
-        @keyframes glubShake {
+        @keyframes emoShake {
           0%, 100% { transform: translate(0,0); }
           20% { transform: translate(-8px, 6px); }
           40% { transform: translate(8px, -6px); }
           60% { transform: translate(-6px, -6px); }
           80% { transform: translate(6px, 6px); }
         }
-        @keyframes glubParticle {
+        @keyframes emoParticle {
           0% { transform: translate(0,0) scale(1); opacity: 1; }
           100% { transform: translate(var(--tx), var(--ty)) scale(0.1); opacity: 0; }
         }
-        @keyframes glubHeart {
+        @keyframes emoHeart {
           0% { transform: translate(0,0) scale(0.5); opacity: 1; }
-          100% { transform: translate(0, -80px) scale(1.15); opacity: 0; }
-        }
-        @keyframes glubRainbow {
-          0% { filter: hue-rotate(0deg); }
-          100% { filter: hue-rotate(360deg); }
+          100% { transform: translate(0, -80px) scale(1.2); opacity: 0; }
         }
       `}</style>
 
-      {/* Ambient background particles */}
-      <div className="absolute inset-0 opacity-30 pointer-events-none">
-        {Array.from({ length: 30 }).map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-cyan-200"
-            style={{
-              width: i % 3 === 0 ? 3 : 1.5,
-              height: i % 3 === 0 ? 3 : 1.5,
-              left: `${(i * 47) % 100}%`,
-              top: `${(i * 31) % 100}%`,
-              opacity: 0.3 + (i % 5) / 10,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* SOCCER GOAL POSTS */}
-      {activeToy === "ball" && (
-        <>
-          {/* Left Goal */}
-          <div
-            className="absolute left-0 bottom-0 pointer-events-none z-10 flex flex-col justify-end"
-            style={{ width: 48, height: 170 }}
-          >
-            <div className="w-full h-full border-r-4 border-t-4 border-emerald-400/80 rounded-tr-2xl bg-emerald-500/10 backdrop-blur-xs flex items-center justify-center">
-              <span className="text-[10px] font-bold text-emerald-300 -rotate-90 tracking-widest uppercase">Goal L</span>
+      {/* MATRIX BACKGROUND DATA STREAM */}
+      {matrixActive && (
+        <div className="absolute inset-0 opacity-25 pointer-events-none font-mono text-[10px] text-emerald-400 overflow-hidden select-none">
+          {Array.from({ length: 14 }).map((_, i) => (
+            <div key={i} className="absolute animate-pulse" style={{ left: `${i * 7}%`, top: `${(i * 13) % 80}%` }}>
+              01000101 01001101 01001111 00100000 01000001 01001001
             </div>
-          </div>
-
-          {/* Right Goal */}
-          <div
-            className="absolute right-0 bottom-0 pointer-events-none z-10 flex flex-col justify-end"
-            style={{ width: 48, height: 170 }}
-          >
-            <div className="w-full h-full border-l-4 border-t-4 border-emerald-400/80 rounded-tl-2xl bg-emerald-500/10 backdrop-blur-xs flex items-center justify-center">
-              <span className="text-[10px] font-bold text-emerald-300 rotate-90 tracking-widest uppercase">Goal R</span>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* GOAL BANNER NOTIFICATION */}
-      {goalCelebration && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 animate-bounce pointer-events-none">
-          <div className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-pink-500 text-white font-extrabold text-lg shadow-2xl tracking-wide border border-white/30 whitespace-nowrap">
-            {goalCelebration}
-          </div>
+          ))}
         </div>
       )}
 
-      {/* TOP HEADER & CONTROL HUB */}
-      <header className="absolute top-4 left-4 right-4 z-40 flex items-start justify-between">
-        {/* Left: Brand Title */}
-        <div className="px-4 py-2 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/15 shadow-2xl flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-          {/* <h1 className="text-sm font-bold tracking-wider text-white font-mono">GLUB.OS</h1> */}
-        </div>
-
-        {/* Right: Scoreboard & Dropdown Hub */}
+      {/* TOP GLASSMORPHIC CONTROL BAR */}
+      <header className="absolute top-3 left-3 right-3 z-40 flex items-center justify-between">
+        {/* Left: Bio-Vitals Badge & Voice */}
         <div className="flex items-center gap-2">
-          {/* Soccer Match Score */}
-          {activeToy === "ball" && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/15 text-xs font-mono font-bold text-white shadow-xl">
-              <span className="text-cyan-300">YOU {playerScore}</span>
-              <span className="text-slate-400">:</span>
-              <span className="text-emerald-300">{glubScore} GLUB</span>
+          <div className="px-3.5 py-2 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-white/15 shadow-2xl flex items-center gap-2.5">
+            <span className={`w-2.5 h-2.5 rounded-full ${isListening ? "bg-red-500 animate-ping" : "bg-cyan-400 animate-pulse"}`} />
+            <span className="text-xs font-mono font-bold tracking-wider text-white">EMO.AI 4.0</span>
+            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-white/10 text-[11px] font-mono text-cyan-300">
+              <span>💖 {affection}%</span>
+              <span>⚡ {energy}%</span>
             </div>
-          )}
+          </div>
 
-          {/* Quick Sound Toggle */}
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setMuted((m) => !m);
-            }}
-            className="p-2 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 transition backdrop-blur-xl border border-white/15 text-white text-xs"
-            title={muted ? "Unmute Sound" : "Mute Sound"}
+            onClick={toggleListening}
+            className={`px-4 py-2 rounded-2xl flex items-center gap-1.5 border shadow-xl transition-all ${
+              isListening
+                ? "bg-rose-500 border-rose-300 text-white font-bold animate-bounce"
+                : "bg-slate-900/70 hover:bg-slate-800/80 border-white/15 text-cyan-300 text-xs font-medium backdrop-blur-xl"
+            }`}
+          >
+            <span>{isListening ? "🔴 Listening" : "🎙️ Talk"}</span>
+          </button>
+        </div>
+
+        {/* Right: Actions Hub */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setCommandsOpen(true)}
+            className="px-3.5 py-2 rounded-2xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 text-xs font-semibold backdrop-blur-xl transition active:scale-95 flex items-center gap-1.5"
+          >
+            <span>📜</span>
+            <span className="hidden sm:inline">Commands</span>
+          </button>
+
+          <button
+            onClick={() => setMuted((m) => !m)}
+            className="p-2.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800/80 transition border border-white/15 text-white text-xs backdrop-blur-xl"
           >
             {muted ? "🔇" : "🔊"}
           </button>
 
-          {/* Settings & Toys Dropdown Menu */}
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
+          <div className="relative">
             <button
               onClick={() => setMenuOpen((o) => !o)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-95 transition backdrop-blur-xl border border-white/20 text-white text-xs font-semibold shadow-xl"
+              className="p-2.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800/80 transition border border-white/15 text-white text-xs font-bold backdrop-blur-xl"
             >
-              <span>⚙️ Controls</span>
-              <span className={`text-[10px] transition-transform ${menuOpen ? "rotate-180" : ""}`}>▼</span>
+              ⚙️
             </button>
 
             {menuOpen && (
               <div className="absolute right-0 top-12 w-64 p-3 rounded-2xl bg-slate-900/95 backdrop-blur-2xl border border-white/20 shadow-2xl flex flex-col gap-3 text-white text-xs z-50">
-                {/* Section 1: Toys & Modes */}
                 <div>
-                  <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Activity Mode</span>
-                  <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-                    <button
-                      onClick={() => {
-                        setActiveToy("hand");
-                        sounds.toySelect();
-                        setMenuOpen(false);
-                      }}
-                      className={`p-2 rounded-xl flex flex-col items-center gap-1 font-medium transition ${
-                        activeToy === "hand" ? "bg-white text-slate-900 shadow-md font-bold" : "bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-                      <span className="text-base">👋</span>
-                      <span>Pet</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setActiveToy("ball");
-                        ballPhys.current.active = true;
-                        sounds.toySelect();
-                        setMenuOpen(false);
-                      }}
-                      className={`p-2 rounded-xl flex flex-col items-center gap-1 font-medium transition ${
-                        activeToy === "ball" ? "bg-white text-slate-900 shadow-md font-bold" : "bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-                      <span className="text-base">⚽</span>
-                      <span>Soccer</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setActiveToy("laser");
-                        sounds.toySelect();
-                        setMenuOpen(false);
-                      }}
-                      className={`p-2 rounded-xl flex flex-col items-center gap-1 font-medium transition ${
-                        activeToy === "laser" ? "bg-white text-slate-900 shadow-md font-bold" : "bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-                      <span className="text-base">🔴</span>
-                      <span>Laser</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Section 2: Gravity Flip */}
-                <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-                  <span className="text-slate-300">Antigravity</span>
-                  <button
-                    onClick={() => {
-                      toggleGravity();
-                    }}
-                    className={`px-3 py-1.5 rounded-xl font-bold transition ${
-                      gravityFlipped ? "bg-violet-500 text-white" : "bg-white/10 text-white/70 hover:bg-white/20"
-                    }`}
-                  >
-                    {gravityFlipped ? "ON 🛸" : "OFF 🌍"}
-                  </button>
-                </div>
-
-                {/* Section 3: Skins / Color Palette */}
-                <div className="pt-2 border-t border-white/10">
-                  <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Skins</span>
-                  <div className="grid grid-cols-6 gap-1.5 mt-2">
-                    {SKINS.map((s, i) => (
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chassis Hardware</span>
+                  <div className="grid grid-cols-5 gap-1.5 mt-1.5">
+                    {CHASSIS_THEMES.map((theme, i) => (
                       <button
-                        key={s.name}
+                        key={theme.name}
                         onClick={() => {
-                          setSkinIdx(i);
-                          sounds.toySelect();
-                          markInteraction();
+                          setThemeIdx(i);
+                          setMenuOpen(false);
                         }}
-                        title={s.name}
-                        className="w-7 h-7 rounded-full transition-transform hover:scale-110"
-                        style={{
-                          background: s.swatch,
-                          border: i === skinIdx ? "2px solid #ffffff" : "2px solid rgba(255,255,255,0.2)",
-                          boxShadow: i === skinIdx ? `0 0 10px ${s.swatch}` : "none",
-                        }}
+                        className="w-8 h-8 rounded-full border-2 transition hover:scale-110"
+                        style={{ background: theme.accent, borderColor: i === themeIdx ? "#ffffff" : "transparent" }}
+                        title={theme.name}
                       />
                     ))}
                   </div>
                 </div>
 
-                {/* Section 4: Explosions Count */}
-                <div className="pt-2 border-t border-white/10 flex justify-between text-[11px] text-slate-400">
-                  <span>Blob Explosions:</span>
-                  <span className="font-bold text-white">💥 {popScore}</span>
+                <div className="pt-2 border-t border-white/10 flex justify-between items-center">
+                  <span className="text-slate-300">Gravity Invert</span>
+                  <button
+                    onClick={() => {
+                      gravityDir.current *= -1;
+                      sounds.jump();
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 font-semibold"
+                  >
+                    🛸 Toggle
+                  </button>
                 </div>
               </div>
             )}
@@ -1321,30 +1391,227 @@ export default function BlobCompanion() {
         </div>
       </header>
 
-      {/* FLOATING SPEECH BANNER */}
-      {!isExploded && msg && (
+      {/* BOTTOM MOBILE RESPONSIVE ACTION DOCK */}
+      <nav className="absolute bottom-3 left-3 right-3 z-40 flex items-center justify-center gap-2">
+        <div className="px-3 py-2 rounded-3xl bg-slate-950/85 backdrop-blur-2xl border border-white/15 shadow-2xl flex items-center gap-1 max-w-lg w-full justify-around text-xs">
+          <button
+            onClick={() => handleVoiceCommand("weather")}
+            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
+          >
+            <span className="text-lg">🌤️</span>
+            <span className="text-[10px]">Weather</span>
+          </button>
+          <button
+            onClick={() => handleVoiceCommand("trivia")}
+            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
+          >
+            <span className="text-lg">🧠</span>
+            <span className="text-[10px]">Trivia</span>
+          </button>
+          <button
+            onClick={() => handleVoiceCommand("joke")}
+            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
+          >
+            <span className="text-lg">😂</span>
+            <span className="text-[10px]">Joke</span>
+          </button>
+          <button
+            onClick={() => handleVoiceCommand("pokedex")}
+            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
+          >
+            <span className="text-lg">⚡</span>
+            <span className="text-[10px]">Pokédex</span>
+          </button>
+          <button
+            onClick={() => handleVoiceCommand("space")}
+            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
+          >
+            <span className="text-lg">🌌</span>
+            <span className="text-[10px]">Space</span>
+          </button>
+          <button
+            onClick={() => handleVoiceCommand("dance")}
+            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
+          >
+            <span className="text-lg">🕺</span>
+            <span className="text-[10px]">Dance</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* LIVE INTERACTIVE TRIVIA POPUP */}
+      {liveQuiz && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2.5 p-4 rounded-3xl bg-slate-900/95 border border-cyan-400 backdrop-blur-xl shadow-2xl max-w-sm w-[90%]">
+          <span className="text-xs font-bold text-cyan-300 uppercase font-mono tracking-wider">OpenTDB Live Trivia</span>
+          <p className="text-xs text-white text-center font-medium">{liveQuiz.question}</p>
+          <div className="grid grid-cols-1 gap-1.5 w-full">
+            {liveQuiz.choices.map((choice, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  if (choice === liveQuiz.correct) {
+                    sounds.chirp();
+                    setMood("happy");
+                    setMsg("CORRECT! You nailed it! 🏆✨");
+                    speakText("Correct answer! You are brilliant!");
+                  } else {
+                    sounds.gasp();
+                    setMood("scared");
+                    setMsg(`Wrong! Correct answer was: ${liveQuiz.correct} ❌`);
+                    speakText(`Incorrect! The correct answer was ${liveQuiz.correct}`);
+                  }
+                  setLiveQuiz(null);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-white/10 hover:bg-cyan-500/20 border border-white/10 text-xs text-left transition active:scale-98 text-cyan-100"
+              >
+                {choice}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* POKEMON CARD DISPLAY */}
+      {pokemonCard && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 p-3.5 rounded-3xl bg-slate-900/95 border border-amber-400 backdrop-blur-xl shadow-2xl animate-bounce">
+          <img src={pokemonCard.sprite} alt={pokemonCard.name} className="w-16 h-16 pixelated bg-white/10 rounded-2xl border border-white/15" />
+          <div className="flex flex-col text-xs text-white">
+            <span className="font-bold text-amber-300 font-mono">{pokemonCard.name}</span>
+            <span className="text-[10px] text-slate-300 uppercase">Type: {pokemonCard.types}</span>
+            <span className="text-[10px] text-slate-400">Ht: {pokemonCard.height}m | Wt: {pokemonCard.weight}kg</span>
+          </div>
+        </div>
+      )}
+
+      {/* SIMON SAYS MEMORY CHALLENGE */}
+      {simonGame && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2 p-3.5 rounded-3xl bg-slate-900/90 border border-cyan-400 backdrop-blur-xl shadow-2xl">
+          <span className="text-xs font-bold text-cyan-300 uppercase font-mono">Memory Matrix Sequence</span>
+          <div className="flex gap-2.5">
+            {["🔵", "🟢", "🟡", "🔴"].map((color) => (
+              <button
+                key={color}
+                onClick={() => {
+                  if (color === simonGame.sequence[simonGame.step]) {
+                    sounds.chirp();
+                    if (simonGame.step + 1 >= simonGame.sequence.length) {
+                      setMood("happy");
+                      setMsg("YOU WON! Outstanding memory! 🏆✨");
+                      speakText("Sequence complete! You win!");
+                      setSimonGame(null);
+                    } else {
+                      setSimonGame((s) => ({ ...s, step: s.step + 1 }));
+                    }
+                  } else {
+                    sounds.gasp();
+                    setMood("scared");
+                    setMsg("Wrong sequence! Try again! ❌");
+                    speakText("Incorrect sequence.");
+                    setSimonGame(null);
+                  }
+                }}
+                className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/25 flex items-center justify-center text-2xl transition active:scale-90 shadow-md"
+              >
+                {color}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ALL COMMANDS MODAL */}
+      {commandsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md">
+          <div className="w-full max-w-lg rounded-3xl bg-slate-900 border border-cyan-500/40 p-5 sm:p-6 text-white shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🤖</span>
+                <h3 className="font-bold text-base sm:text-lg text-cyan-300 font-mono">EMO Command Deck</h3>
+              </div>
+              <button
+                onClick={() => setCommandsOpen(false)}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="overflow-y-auto pr-1 flex flex-col gap-4 my-3 text-xs">
+              {COMMAND_LIST.map((group, gi) => (
+                <div key={gi} className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">{group.group}</span>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {group.items.map((item, ii) => (
+                      <div
+                        key={ii}
+                        onClick={() => {
+                          const raw = item.cmd.split("/")[0].replace(/["']/g, "").trim();
+                          handleVoiceCommand(raw);
+                          setCommandsOpen(false);
+                        }}
+                        className="p-2.5 rounded-xl bg-white/5 hover:bg-cyan-500/10 border border-white/10 transition cursor-pointer flex flex-col gap-0.5"
+                      >
+                        <span className="font-bold text-cyan-200">{item.cmd}</span>
+                        <span className="text-slate-400 text-[11px]">{item.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setCommandsOpen(false)}
+              className="w-full py-2.5 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs hover:bg-cyan-400 transition"
+            >
+              Close Command Deck
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* GAME OVERLAY BANNER */}
+      {gameOverlay && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 animate-bounce max-w-[90%]">
+          <div className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-extrabold text-sm sm:text-base shadow-2xl tracking-wide border border-white/30 text-center whitespace-normal">
+            {gameOverlay}
+          </div>
+        </div>
+      )}
+
+      {/* BIG DIGITAL TIME DISPLAY */}
+      {clockDisplay && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 animate-pulse text-center">
+          <div className="px-7 py-3 rounded-3xl bg-black/85 border-2 border-cyan-400 text-cyan-300 font-mono text-3xl sm:text-4xl font-extrabold tracking-widest shadow-[0_0_30px_rgba(56,189,248,0.6)]">
+            {clockDisplay}
+          </div>
+        </div>
+      )}
+
+      {/* SPEECH BUBBLE */}
+      {mood !== "exploded" && msg && (
         <div
-          className="absolute z-30 transition-all duration-200 pointer-events-none whitespace-nowrap"
+          className="absolute z-30 transition-all duration-150 pointer-events-none whitespace-normal text-center max-w-[220px]"
           style={{
             left: 0,
             top: 0,
-            transform: `translate3d(${phys.current.x - 70}px, ${phys.current.y - HALF - 44}px, 0)`,
+            transform: `translate3d(${phys.current.x - 110}px, ${phys.current.y - robotSize.h / 2 - 50}px, 0)`,
           }}
         >
-          <div className="px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-white/20 backdrop-blur-md text-white text-xs font-medium shadow-xl">
+          <div className="px-4 py-2 rounded-2xl bg-slate-950/90 border border-cyan-500/50 backdrop-blur-md text-cyan-200 text-xs font-semibold shadow-2xl">
             {msg}
           </div>
         </div>
       )}
 
-      {/* COMBO METER */}
-      {comboMeter >= 3 && !isExploded && (
+      {/* COMBO METER OVERHEAD */}
+      {comboMeter >= 3 && mood !== "exploded" && (
         <div
           className="absolute z-20 rounded-full overflow-hidden bg-white/10 border border-white/20"
           style={{
             width: 90,
             height: 6,
-            transform: `translate3d(${phys.current.x - 45}px, ${phys.current.y - HALF - 60}px, 0)`,
+            transform: `translate3d(${phys.current.x - 45}px, ${phys.current.y - robotSize.h / 2 - 64}px, 0)`,
           }}
         >
           <div
@@ -1358,55 +1625,11 @@ export default function BlobCompanion() {
         </div>
       )}
 
-      {/* SOCCER BALL OBJECT */}
-      {activeToy === "ball" && ballPhys.current.active && (
-        <div
-          ref={ballElemRef}
-          onPointerDown={onBallPointerDown}
-          onPointerMove={onBallPointerMove}
-          onPointerUp={onBallPointerUp}
-          className="absolute z-20 cursor-grab active:cursor-grabbing touch-none"
-          style={{
-            width: BALL_RADIUS * 2,
-            height: BALL_RADIUS * 2,
-            left: 0,
-            top: 0,
-          }}
-        >
-          <div
-            className="w-full h-full rounded-full relative overflow-hidden flex items-center justify-center"
-            style={{
-              background: "radial-gradient(circle at 35% 35%, #ffffff, #e2e8f0 65%, #94a3b8 100%)",
-              boxShadow: "0 8px 18px rgba(0,0,0,0.4), inset -2px -3px 6px rgba(0,0,0,0.3), inset 2px 3px 6px rgba(255,255,255,0.8)",
-            }}
-          >
-            {/* Classic Soccer Pentagons */}
-            <div className="w-3.5 h-3.5 bg-slate-900 rounded-sm rotate-45" />
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-1.5 bg-slate-900 rounded-b" />
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-1.5 bg-slate-900 rounded-t" />
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-2 bg-slate-900 rounded-r" />
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-2 bg-slate-900 rounded-l" />
-          </div>
-        </div>
-      )}
-
-      {/* LASER POINTER DOT */}
-      {activeToy === "laser" && laserPos && (
-        <div
-          className="absolute pointer-events-none z-20"
-          style={{
-            transform: `translate3d(${laserPos.x - 8}px, ${laserPos.y - 8}px, 0)`,
-          }}
-        >
-          <div className="w-4 h-4 rounded-full bg-red-500 shadow-[0_0_18px_5px_rgba(239,68,68,0.95)] animate-pulse" />
-        </div>
-      )}
-
-      {/* EXPLOSION & GOAL PARTICLES */}
+      {/* PARTICLES */}
       {particles.map((p) => (
         <div
           key={p.id}
-          className="absolute z-10 rounded-full pointer-events-none"
+          className="absolute z-20 rounded-full pointer-events-none"
           style={{
             left: 0,
             top: 0,
@@ -1416,7 +1639,7 @@ export default function BlobCompanion() {
             transform: `translate3d(${p.x}px, ${p.y}px, 0)`,
             "--tx": `${p.tx}px`,
             "--ty": `${p.ty}px`,
-            animation: "glubParticle 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) forwards",
+            animation: "emoParticle 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) forwards",
             boxShadow: `0 0 10px ${p.color}`,
           }}
         />
@@ -1426,92 +1649,137 @@ export default function BlobCompanion() {
       {hearts.map((h) => (
         <div
           key={h.id}
-          className="absolute z-20 pointer-events-none text-xl"
+          className="absolute z-30 pointer-events-none text-xl"
           style={{
             transform: `translate3d(${h.x}px, ${h.y}px, 0)`,
-            animation: `glubHeart 1.1s ease-out ${h.delay}s forwards`,
+            animation: `emoHeart 1.1s ease-out ${h.delay}s forwards`,
           }}
         >
           💕
         </div>
       ))}
 
-      {/* SLEEP ZZZ */}
-      {isAsleep && (
+      {/* SOCCER BALL */}
+      {activeToy === "ball" && ballPhys.current.active && (
         <div
-          className="absolute z-10 pointer-events-none text-cyan-200 font-bold font-mono tracking-widest"
-          style={{ transform: `translate3d(${phys.current.x + 35}px, ${phys.current.y - HALF - 10}px, 0)` }}
+          ref={ballElemRef}
+          onPointerDown={(e) => {
+            ballPhys.current.held = true;
+            ballDragStart.current = { x: e.clientX, y: e.clientY, time: performance.now(), lastX: e.clientX, lastY: e.clientY, lastTime: performance.now() };
+          }}
+          onPointerMove={(e) => {
+            if (!ballPhys.current.held) return;
+            ballPhys.current.x = e.clientX;
+            ballPhys.current.y = e.clientY;
+          }}
+          onPointerUp={() => {
+            ballPhys.current.held = false;
+          }}
+          className="absolute z-20 cursor-grab active:cursor-grabbing touch-none"
+          style={{ width: BALL_RADIUS * 2, height: BALL_RADIUS * 2, left: 0, top: 0 }}
         >
-          <span className="block animate-bounce text-base">z Z z...</span>
+          <div className="w-full h-full rounded-full bg-gradient-to-tr from-slate-200 to-white shadow-xl flex items-center justify-center border border-slate-400">
+            <span className="text-xs">⚽</span>
+          </div>
         </div>
       )}
 
-      {/* THE BLOB (GLUB) */}
-      {!isExploded && (
+      {/* LASER POINTER DOT */}
+      {activeToy === "laser" && laserPos && (
         <div
-          ref={blobRef}
+          className="absolute pointer-events-none z-20"
+          style={{ transform: `translate3d(${laserPos.x - 8}px, ${laserPos.y - 8}px, 0)` }}
+        >
+          <div className="w-4 h-4 rounded-full bg-red-500 shadow-[0_0_20px_6px_rgba(239,68,68,0.95)] animate-ping" />
+        </div>
+      )}
+
+      {/* --- THE ENLARGED EMO ROBOT CHASSIS --- */}
+      {mood !== "exploded" && (
+        <div
+          ref={robotRef}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
           className="absolute z-10 cursor-pointer active:cursor-grabbing touch-none"
           style={{
-            width: BLOB_SIZE,
-            height: BLOB_SIZE,
+            width: robotSize.w,
+            height: robotSize.h,
             left: 0,
             top: 0,
           }}
         >
+          {/* Headphones Earcups with RGB Equalizer Rings */}
           <div
-            className="w-full h-full rounded-full relative"
+            className="absolute -left-4 top-8 w-8 h-20 rounded-3xl border-2 flex items-center justify-center shadow-2xl transition-all"
             style={{
-              background: bodyGradient,
-              boxShadow:
-                "0 16px 36px rgba(0,0,0,0.4), inset -8px -10px 18px rgba(0,0,0,0.15), inset 6px 8px 16px rgba(255,255,255,0.45)",
-              animation: rainbow ? "glubRainbow 1s linear" : "none",
+              background: currentTheme.body,
+              borderColor: currentTheme.border,
+              boxShadow: discoActive ? `0 0 24px ${currentTheme.accent}` : `0 0 12px ${currentTheme.glow}`,
             }}
           >
-            {/* Blushing cheeks */}
-            {(isHappy || isSleepy) && (
-              <>
-                <div className="absolute rounded-full bg-pink-400/50 blur-[2px]" style={{ width: 22, height: 12, left: 18, top: 78 }} />
-                <div className="absolute rounded-full bg-pink-400/50 blur-[2px]" style={{ width: 22, height: 12, right: 18, top: 78 }} />
-              </>
-            )}
+            <div className="w-2.5 h-8 rounded-full" style={{ background: currentTheme.accent }} />
+          </div>
 
-            {/* Scared Eyebrows */}
-            {isScared && (
-              <>
-                <div className="absolute top-9 left-8 w-6 h-1 rounded-full bg-rose-900 -rotate-12" />
-                <div className="absolute top-9 right-8 w-6 h-1 rounded-full bg-rose-900 rotate-12" />
-              </>
-            )}
+          <div
+            className="absolute -right-4 top-8 w-8 h-20 rounded-3xl border-2 flex items-center justify-center shadow-2xl transition-all"
+            style={{
+              background: currentTheme.body,
+              borderColor: currentTheme.border,
+              boxShadow: discoActive ? `0 0 24px ${currentTheme.accent}` : `0 0 12px ${currentTheme.glow}`,
+            }}
+          >
+            <div className="w-2.5 h-8 rounded-full" style={{ background: currentTheme.accent }} />
+          </div>
 
-            {/* Eyes */}
-            {!isAsleep && !isSleepy ? (
-              <>
-                <RenderEye pupilRef={pupilLRef} side="left" mood={mood} blink={eyesClosed} />
-                <RenderEye pupilRef={pupilRRef} side="right" mood={mood} blink={eyesClosed} />
-              </>
-            ) : (
-              <>
-                <svg width="26" height="10" style={{ position: "absolute", left: 34, top: 64 }} viewBox="0 0 26 10">
-                  <path d="M2 2 Q13 12 24 2" stroke="#1e1b4b" strokeWidth="3.5" fill="none" strokeLinecap="round" />
-                </svg>
-                <svg width="26" height="10" style={{ position: "absolute", right: 34, top: 64 }} viewBox="0 0 26 10">
-                  <path d="M2 2 Q13 12 24 2" stroke="#1e1b4b" strokeWidth="3.5" fill="none" strokeLinecap="round" />
-                </svg>
-              </>
-            )}
+          {/* Top Headband & Antenna LED */}
+          <div
+            className="absolute left-4 right-4 -top-3 h-8 border-t-4 border-l-4 border-r-4 rounded-t-3xl"
+            style={{ borderColor: currentTheme.border }}
+          />
 
-            {/* Mouth */}
-            <svg width="46" height="26" style={{ position: "absolute", left: "50%", marginLeft: -23, top: 88 }} viewBox="0 0 46 26">
-              {isScared && <ellipse cx="23" cy="10" rx="9" ry="11" fill="#881337" stroke="#1e1b4b" strokeWidth="2" />}
-              {isHappy && <path d="M4 6 Q23 26 42 6" stroke="#1e1b4b" strokeWidth="3.5" fill="none" strokeLinecap="round" />}
-              {(isSurprised || isFalling) && <ellipse cx="23" cy="10" rx="7" ry="9" fill="#1e1b4b" />}
-              {(isAsleep || isSleepy) && <ellipse cx="23" cy="8" rx="5" ry="3" fill="#1e1b4b" opacity="0.8" />}
-              {mood === "idle" && <path d="M8 5 Q23 16 38 5" stroke="#1e1b4b" strokeWidth="3.5" fill="none" strokeLinecap="round" />}
-            </svg>
+          {/* Main Chassis Body */}
+          <div
+            className="w-full h-full rounded-3xl relative p-3 flex flex-col items-center justify-center shadow-2xl border-2 overflow-hidden"
+            style={{
+              background: currentTheme.body,
+              borderColor: currentTheme.border,
+              boxShadow: `0 20px 45px rgba(0,0,0,0.65), inset 0 2px 4px rgba(255,255,255,0.2), 0 0 18px ${currentTheme.glow}`,
+            }}
+          >
+            {/* OLED Glass Screen Bezel */}
+            <div className="w-full h-28 rounded-2xl bg-black/95 border border-white/10 p-2 flex flex-col items-center justify-between relative shadow-inner">
+              <div className="w-full flex justify-between px-1.5 text-[8px] font-mono text-cyan-400/80">
+                <span>● BIO-CORE 4.0</span>
+                <span>⚡ {energy}%</span>
+              </div>
+
+              {/* Expressive OLED Digital Eyes & Blush Cheeks */}
+              <div className="flex items-center gap-6 my-auto relative">
+                <EmoEye side="left" mood={mood} blink={blink} eyeColor={currentTheme.eyeGlow} />
+                <EmoEye side="right" mood={mood} blink={blink} eyeColor={currentTheme.eyeGlow} />
+
+                {(mood === "happy" || affection > 90) && (
+                  <>
+                    <div className="absolute -left-3 top-5 w-4 h-2.5 rounded-full bg-pink-500/60 blur-[1px]" />
+                    <div className="absolute -right-3 top-5 w-4 h-2.5 rounded-full bg-pink-500/60 blur-[1px]" />
+                  </>
+                )}
+              </div>
+
+              {/* Equalizer Waveform */}
+              <div className="w-16 h-1.5 flex items-center justify-center gap-1">
+                <div className="w-1.5 h-full bg-cyan-400/60 rounded-full animate-bounce" />
+                <div className="w-1.5 h-full bg-cyan-400/80 rounded-full animate-pulse" />
+                <div className="w-1.5 h-full bg-cyan-400/60 rounded-full animate-bounce" />
+              </div>
+            </div>
+
+            {/* Motorized Robot Dual Foot Pads */}
+            <div className="w-full flex justify-between px-6 -mb-1.5 mt-1.5">
+              <div className="w-7 h-3 rounded-b-xl bg-slate-950 border border-slate-700" />
+              <div className="w-7 h-3 rounded-b-xl bg-slate-950 border border-slate-700" />
+            </div>
           </div>
         </div>
       )}
