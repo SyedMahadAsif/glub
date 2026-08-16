@@ -48,6 +48,17 @@ const FORTUNE_ANSWERS = [
 ];
 
 const COMMAND_LIST = [
+  { group: "Animal Mimicry & Sounds 🐾", items: [
+    { cmd: '"Cat sound" / "Meow"', desc: "EMO imitates a cute cat meow." },
+    { cmd: '"Dog sound" / "Bark"', desc: "EMO barks like an energetic puppy." },
+    { cmd: '"Bird sound" / "Chirp"', desc: "EMO whistles songbird melodies." },
+    { cmd: '"Duck sound" / "Quack"', desc: "EMO quacks like a duck." },
+    { cmd: '"Frog sound" / "Croak"', desc: "EMO croaks like a swamp frog." },
+    { cmd: '"Cow sound" / "Moo"', desc: "EMO makes a deep resonant moo." },
+    { cmd: '"Lion sound" / "Roar"', desc: "EMO roars like a ferocious apex predator." },
+    { cmd: '"Monkey sound" / "Ape"', desc: "EMO chatters like a playful chimp." },
+    { cmd: '"Sheep sound" / "Baa"', desc: "EMO bleats like a sheep." },
+  ]},
   { group: "Live Web APIs (Real Data)", items: [
     { cmd: '"Weather"', desc: "Fetches live hyperlocal temperature & sky conditions (Open-Meteo API)." },
     { cmd: '"Joke" / "Tell me a joke"', desc: "Fetches live programming & pun jokes (JokeAPI)." },
@@ -65,24 +76,17 @@ const COMMAND_LIST = [
     { cmd: '"Fortune 8-Ball"', desc: "Magic 8-Ball oracle prediction." },
     { cmd: '"Roll dice" / "Flip coin"', desc: "Coin toss or 6-sided dice roll." },
   ]},
-  { group: "Music, Beats & Sound FX", items: [
+  { group: "Music, Beats & Personality", items: [
     { cmd: '"Dance" / "Play music"', desc: "Synth DJ dance routine with audio." },
     { cmd: '"Beatbox" / "Drop a beat"', desc: "Live 8-bit robot beatboxing." },
     { cmd: '"Lullaby" / "Sleep song"', desc: "Plays soothing sleep frequencies." },
     { cmd: '"Siren" / "Red alert"', desc: "Emergency alarm with flashing lights." },
-    { cmd: '"Hypno" / "Dizzy"', desc: "Hypnotic spiral eye animations." },
-  ]},
-  { group: "Personality & Tools", items: [
     { cmd: '"What time is it?" / "Time"', desc: "Speaks and projects neon digital clock." },
-    { cmd: '"Focus timer" / "Timer"', desc: "Starts a 5-minute productivity timer." },
-    { cmd: '"Matrix mode"', desc: "Hacker green terminal rain effect." },
-    { cmd: '"Flip gravity" / "Fly"', desc: "Toggles anti-gravity physics." },
-    { cmd: '"Self destruct" / "Explode"', desc: "Confetti overload explosion & reboot." },
     { cmd: '"I love you" / "Kiss"', desc: "Sends kisses, hearts, and purrs happily." },
   ]}
 ];
 
-// --- AUDIO & MUSIC ENGINE ---
+// --- COMPLETE AUDIO SYNTHESIZER ENGINE ---
 function useEmoAudio(mutedRef) {
   const ctxRef = useRef(null);
   const danceIntervalRef = useRef(null);
@@ -139,6 +143,114 @@ function useEmoAudio(mutedRef) {
     } catch {}
   }, [mutedRef]);
 
+  // Procedural Animal Sounds
+  const animalSounds = {
+    cat: () => {
+      if (mutedRef.current) return;
+      const ctx = getCtx();
+      if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(450, t0);
+      osc.frequency.exponentialRampToValueAtTime(750, t0 + 0.25);
+      osc.frequency.exponentialRampToValueAtTime(320, t0 + 0.7);
+      gain.gain.setValueAtTime(0.001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.25, t0 + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.7);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.75);
+    },
+    dog: () => {
+      [0, 0.22].forEach((del) => {
+        if (mutedRef.current) return;
+        const ctx = getCtx();
+        if (!ctx) return;
+        const t0 = ctx.currentTime + del;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(280, t0);
+        osc.frequency.exponentialRampToValueAtTime(90, t0 + 0.14);
+        gain.gain.setValueAtTime(0.001, t0);
+        gain.gain.linearRampToValueAtTime(0.25, t0 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.14);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.16);
+      });
+    },
+    bird: () => {
+      [0, 0.09, 0.2, 0.28].forEach((del, i) => {
+        const base = i % 2 === 0 ? 1800 : 2400;
+        tone(base, 0.06, "sine", 0.12, del, base + 600);
+      });
+    },
+    duck: () => {
+      [0, 0.25].forEach((del) => {
+        if (mutedRef.current) return;
+        const ctx = getCtx();
+        if (!ctx) return;
+        const t0 = ctx.currentTime + del;
+        const osc = ctx.createOscillator();
+        const filter = ctx.createBiquadFilter();
+        const gain = ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(240, t0);
+        osc.frequency.exponentialRampToValueAtTime(160, t0 + 0.18);
+        filter.type = "bandpass";
+        filter.frequency.value = 850;
+        filter.Q.value = 4;
+        gain.gain.setValueAtTime(0.001, t0);
+        gain.gain.linearRampToValueAtTime(0.22, t0 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
+        osc.connect(filter).connect(gain).connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.2);
+      });
+    },
+    frog: () => {
+      [0, 0.08, 0.16, 0.24].forEach((del) => {
+        tone(95, 0.05, "square", 0.18, del, 60);
+      });
+    },
+    cow: () => {
+      if (mutedRef.current) return;
+      const ctx = getCtx();
+      if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(130, t0);
+      osc.frequency.linearRampToValueAtTime(145, t0 + 0.35);
+      osc.frequency.linearRampToValueAtTime(95, t0 + 0.95);
+      gain.gain.setValueAtTime(0.001, t0);
+      gain.gain.linearRampToValueAtTime(0.22, t0 + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.95);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 1.0);
+    },
+    lion: () => {
+      noiseBurst(0.7, 0.28, 650);
+      tone(120, 0.65, "sawtooth", 0.2, 0, 45);
+    },
+    monkey: () => {
+      [0, 0.14, 0.28, 0.44].forEach((del, i) => {
+        const freq = i < 2 ? 650 : 1100;
+        tone(freq, 0.09, "sine", 0.16, del, freq + 300);
+      });
+    },
+    sheep: () => {
+      [0, 0.08, 0.16, 0.24, 0.32, 0.4].forEach((del) => {
+        tone(220 + Math.sin(del * 10) * 30, 0.07, "sawtooth", 0.12, del, 180);
+      });
+    },
+  };
+
   const stopMusic = useCallback(() => {
     if (danceIntervalRef.current) {
       clearInterval(danceIntervalRef.current);
@@ -193,6 +305,7 @@ function useEmoAudio(mutedRef) {
     playLullaby,
     beatbox,
     siren,
+    animalSounds,
     laserBeep: () => tone(1200, 0.05, "sawtooth", 0.12, 0, 400),
     poke: (pitchBoost = 0) => tone(560 + pitchBoost, 0.08, "sine", 0.15, 0, 380 + pitchBoost),
     boop: () => tone(320, 0.1, "sine", 0.16, 0, 180),
@@ -295,7 +408,7 @@ export default function EmoCompanion() {
   const [affection, setAffection] = useState(85);
   const [energy, setEnergy] = useState(90);
   const [blink, setBlink] = useState(false);
-  const [msg, setMsg] = useState("Hi! I'm EMO. Ask for live Weather, Trivia, or Joke!");
+  const [msg, setMsg] = useState("Hi! I'm EMO. Tap a command or talk to me!");
   const [themeIdx, setThemeIdx] = useState(0);
   const [muted, setMuted] = useState(false);
   const [activeToy, setActiveToy] = useState("hand");
@@ -449,7 +562,7 @@ export default function EmoCompanion() {
       phys.current.scaleY = 0.05;
       sounds.reform();
       setMood("idle");
-      setMsg("Reboot complete! All live APIs linked! 🦾✨");
+      setMsg("Reboot complete! All systems optimal! 🦾✨");
       speakText("Systems online!");
       markInteraction();
     }, 950);
@@ -544,9 +657,56 @@ export default function EmoCompanion() {
     }
   };
 
-  // --- LIVE PUBLIC API INTEGRATIONS ---
+  // Animal Sound Handler
+  const triggerAnimalSound = (animalKey) => {
+    const key = animalKey.toLowerCase();
+    if (key.includes("cat") || key.includes("kitten") || key.includes("meow")) {
+      sounds.animalSounds.cat();
+      setMood("happy");
+      setMsg("Meowww~ 🐱");
+      pulseSquish(1.1, 0.9);
+    } else if (key.includes("dog") || key.includes("puppy") || key.includes("bark") || key.includes("woof")) {
+      sounds.animalSounds.dog();
+      setMood("happy");
+      setMsg("Woof! Woof! 🐶");
+      pulseSquish(1.15, 0.85);
+    } else if (key.includes("bird") || key.includes("chirp") || key.includes("tweet")) {
+      sounds.animalSounds.bird();
+      setMood("happy");
+      setMsg("Chirp chirp tweet! 🐦");
+    } else if (key.includes("duck") || key.includes("quack")) {
+      sounds.animalSounds.duck();
+      setMood("happy");
+      setMsg("Quack quack! 🦆");
+    } else if (key.includes("frog") || key.includes("croak") || key.includes("ribbit")) {
+      sounds.animalSounds.frog();
+      setMood("happy");
+      setMsg("Ribbit ribbit croak! 🐸");
+    } else if (key.includes("cow") || key.includes("moo") || key.includes("cattle")) {
+      sounds.animalSounds.cow();
+      setMood("happy");
+      setMsg("Mooooooo! 🐮");
+    } else if (key.includes("lion") || key.includes("tiger") || key.includes("roar")) {
+      sounds.animalSounds.lion();
+      setMood("angry");
+      setMsg("ROOOAAARRR! 🦁");
+      clearMoodSoon("angry", 2000);
+    } else if (key.includes("monkey") || key.includes("ape") || key.includes("chimp")) {
+      sounds.animalSounds.monkey();
+      setMood("happy");
+      setMsg("Ooh-ooh aah-aah! 🐒");
+    } else if (key.includes("sheep") || key.includes("goat") || key.includes("baa")) {
+      sounds.animalSounds.sheep();
+      setMood("happy");
+      setMsg("Baaaaa! 🐑");
+    } else {
+      sounds.animalSounds.cat();
+      setMood("happy");
+      setMsg("Meowww! 🐱");
+    }
+  };
 
-  // 1. Open-Meteo Weather API
+  // --- LIVE PUBLIC API INTEGRATIONS ---
   const fetchLiveWeather = async () => {
     setMsg("Connecting to Open-Meteo orbital satellite... 🛰️");
     setMood("surprised");
@@ -583,7 +743,6 @@ export default function EmoCompanion() {
     }
   };
 
-  // 2. JokeAPI
   const fetchLiveJoke = async () => {
     setMsg("Fetching certified fresh joke from JokeAPI... 📡");
     sounds.chirp();
@@ -605,7 +764,6 @@ export default function EmoCompanion() {
     }
   };
 
-  // 3. OpenTDB Live Trivia API
   const fetchLiveTrivia = async () => {
     setMsg("Dialing Open Trivia Database... 🧠");
     sounds.chirp();
@@ -628,7 +786,6 @@ export default function EmoCompanion() {
     }
   };
 
-  // 4. PokéAPI Scanner
   const fetchPokemon = async (queryName) => {
     const name = queryName ? queryName.trim().toLowerCase() : ["pikachu", "charizard", "gengar", "mewtwo", "eevee", "lucario"][Math.floor(Math.random() * 6)];
     setMsg(`Pokédex Scanning ${name.toUpperCase()}... 🔍⚡`);
@@ -653,7 +810,6 @@ export default function EmoCompanion() {
     }
   };
 
-  // 5. NASA APOD Space Scan API (Cleaned and Fixed)
   const fetchNasaSpaceScan = async () => {
     setMsg("Scanning deep space via NASA APOD satellite... 🌌🔭");
     setMood("surprised");
@@ -670,7 +826,6 @@ export default function EmoCompanion() {
     }
   };
 
-  // 6. Free Dictionary API
   const fetchWordDefinition = async (word) => {
     const targetWord = word ? word.trim().toLowerCase() : "serendipity";
     setMsg(`Lexicon lookup for "${targetWord}"... 📖`);
@@ -690,7 +845,6 @@ export default function EmoCompanion() {
     }
   };
 
-  // Memory Matrix Game
   const startSimonGame = () => {
     const colors = ["🔵", "🟢", "🟡", "🔴"];
     const sequence = [colors[Math.floor(Math.random() * 4)], colors[Math.floor(Math.random() * 4)], colors[Math.floor(Math.random() * 4)]];
@@ -709,7 +863,27 @@ export default function EmoCompanion() {
       const txt = commandText.toLowerCase();
       markInteraction();
 
-      if (txt.includes("weather") || txt.includes("temperature") || txt.includes("forecast")) {
+      if (
+        txt.includes("cat") ||
+        txt.includes("dog") ||
+        txt.includes("bird") ||
+        txt.includes("duck") ||
+        txt.includes("frog") ||
+        txt.includes("cow") ||
+        txt.includes("lion") ||
+        txt.includes("tiger") ||
+        txt.includes("monkey") ||
+        txt.includes("sheep") ||
+        txt.includes("meow") ||
+        txt.includes("bark") ||
+        txt.includes("quack") ||
+        txt.includes("croak") ||
+        txt.includes("moo") ||
+        txt.includes("roar") ||
+        txt.includes("animal sound")
+      ) {
+        triggerAnimalSound(txt);
+      } else if (txt.includes("weather") || txt.includes("temperature") || txt.includes("forecast")) {
         fetchLiveWeather();
       } else if (txt.includes("joke") || txt.includes("pun")) {
         fetchLiveJoke();
@@ -1309,7 +1483,7 @@ export default function EmoCompanion() {
         <div className="flex items-center gap-2">
           <div className="px-3.5 py-2 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-white/15 shadow-2xl flex items-center gap-2.5">
             <span className={`w-2.5 h-2.5 rounded-full ${isListening ? "bg-red-500 animate-ping" : "bg-cyan-400 animate-pulse"}`} />
-            <span className="text-xs font-mono font-bold tracking-wider text-white">EMO.AI 4.0</span>
+            <span className="text-xs font-mono font-bold tracking-wider text-white">robot</span>
             <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-white/10 text-[11px] font-mono text-cyan-300">
               <span>💖 {affection}%</span>
               <span>⚡ {energy}%</span>
@@ -1391,50 +1565,71 @@ export default function EmoCompanion() {
         </div>
       </header>
 
-      {/* BOTTOM MOBILE RESPONSIVE ACTION DOCK */}
+      {/* REORGANIZED BOTTOM ACTION DOCK */}
       <nav className="absolute bottom-3 left-3 right-3 z-40 flex items-center justify-center gap-2">
-        <div className="px-3 py-2 rounded-3xl bg-slate-950/85 backdrop-blur-2xl border border-white/15 shadow-2xl flex items-center gap-1 max-w-lg w-full justify-around text-xs">
+        <div className="px-4 py-2 rounded-3xl bg-slate-950/85 backdrop-blur-2xl border border-white/15 shadow-2xl flex items-center gap-2 max-w-lg w-full justify-around text-xs">
+          {/* 1. Show Commands */}
           <button
-            onClick={() => handleVoiceCommand("weather")}
+            onClick={() => setCommandsOpen(true)}
             className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
+            title="View All Commands"
           >
-            <span className="text-lg">🌤️</span>
-            <span className="text-[10px]">Weather</span>
+            <span className="text-lg">📜</span>
+            <span className="text-[10px]">Commands</span>
           </button>
+
+          {/* 2. Listen / Talk */}
           <button
-            onClick={() => handleVoiceCommand("trivia")}
-            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
+            onClick={toggleListening}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-2xl transition ${
+              isListening
+                ? "bg-rose-500/30 text-rose-300 font-bold border border-rose-400/40 animate-pulse"
+                : "text-slate-300 hover:text-cyan-300 active:scale-95"
+            }`}
+            title="Listen / Talk"
           >
-            <span className="text-lg">🧠</span>
-            <span className="text-[10px]">Trivia</span>
+            <span className="text-lg">{isListening ? "🔴" : "🎙️"}</span>
+            <span className="text-[10px]">{isListening ? "Listening" : "Listen"}</span>
           </button>
+
+          {/* 3. Divider Line */}
+          <div className="w-[1px] h-7 bg-white/20 mx-1" />
+
+          {/* 4. Soccer */}
           <button
-            onClick={() => handleVoiceCommand("joke")}
-            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
+            onClick={() => {
+              setActiveToy((t) => (t === "ball" ? "hand" : "ball"));
+              ballPhys.current.active = true;
+            }}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-2xl transition ${
+              activeToy === "ball"
+                ? "bg-emerald-500/30 text-emerald-300 font-bold border border-emerald-400/40"
+                : "text-slate-300 hover:text-cyan-300 active:scale-95"
+            }`}
+            title="Play Soccer"
           >
-            <span className="text-lg">😂</span>
-            <span className="text-[10px]">Joke</span>
+            <span className="text-lg">⚽</span>
+            <span className="text-[10px]">Soccer</span>
           </button>
-          <button
-            onClick={() => handleVoiceCommand("pokedex")}
-            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
-          >
-            <span className="text-lg">⚡</span>
-            <span className="text-[10px]">Pokédex</span>
-          </button>
-          <button
-            onClick={() => handleVoiceCommand("space")}
-            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
-          >
-            <span className="text-lg">🌌</span>
-            <span className="text-[10px]">Space</span>
-          </button>
+
+          {/* 5. Dance */}
           <button
             onClick={() => handleVoiceCommand("dance")}
             className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
+            title="Dance Routine"
           >
             <span className="text-lg">🕺</span>
             <span className="text-[10px]">Dance</span>
+          </button>
+
+          {/* 6. Joke */}
+          <button
+            onClick={() => handleVoiceCommand("joke")}
+            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
+            title="Tell Joke"
+          >
+            <span className="text-lg">😂</span>
+            <span className="text-[10px]">Joke</span>
           </button>
         </div>
       </nav>
@@ -1750,7 +1945,7 @@ export default function EmoCompanion() {
             {/* OLED Glass Screen Bezel */}
             <div className="w-full h-28 rounded-2xl bg-black/95 border border-white/10 p-2 flex flex-col items-center justify-between relative shadow-inner">
               <div className="w-full flex justify-between px-1.5 text-[8px] font-mono text-cyan-400/80">
-                <span>● BIO-CORE 4.0</span>
+                <span>● Mahad</span>
                 <span>⚡ {energy}%</span>
               </div>
 
