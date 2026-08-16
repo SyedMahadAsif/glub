@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Glub — your blob companion",
-  description: "A tiny interactive blob you can poke, tickle, rub to sleep, and (gently, please) boop.",
+  title: "Blue Eyes",
+  description: "Your interactive online companion",
 };
 
 export default function RootLayout({ children }) {

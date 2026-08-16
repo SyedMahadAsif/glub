@@ -101,7 +101,7 @@ const COMMAND_LIST = [
   ]}
 ];
 
-// --- COMPLETE PROCEDURAL AUDIO SYNTHESIZER ---
+// --- PROCEDURAL AUDIO SYNTHESIZER ---
 function useEmoAudio(mutedRef) {
   const ctxRef = useRef(null);
   const danceIntervalRef = useRef(null);
@@ -460,7 +460,7 @@ function EmoMouth({ mood, eyeColor, isTalking }) {
   );
 }
 
-// --- PURE IMMERSIVE DIGITAL OLED EYES ---
+// --- DIGITAL OLED EYES ---
 function EmoEye({ side, mood, blink, eyeColor, lookOffset }) {
   const isDancing = mood === "dancing";
   const isHappy = mood === "happy" || mood === "laughing";
@@ -857,26 +857,38 @@ export default function EmoCompanion() {
     clearMoodSoon("dizzy", 4500);
   };
 
-  // Gyroscope / Device Motion Shake Sensor
+  // Gyroscope / Device Motion Shake Sensor (Fixed Vector Delta Calculation)
   useEffect(() => {
     let lastX = 0, lastY = 0, lastZ = 0;
     let lastTime = 0;
-    const SHAKE_THRESHOLD = 22;
+    const SHAKE_THRESHOLD = 18; // Corrected dynamic threshold in m/s^2
 
     const handleDeviceMotion = (e) => {
-      const current = e.accelerationIncludingGravity;
-      if (!current) return;
+      // Prioritize pure acceleration; fallback to accelerationIncludingGravity
+      const acc = e.acceleration && e.acceleration.x !== null ? e.acceleration : e.accelerationIncludingGravity;
+      if (!acc) return;
+
       const now = performance.now();
-      if (now - lastTime > 150) {
-        const diffTime = now - lastTime;
-        lastTime = now;
-        const speed = Math.abs(current.x + current.y + current.z - lastX - lastY - lastZ) / diffTime * 10000;
-        if (speed > SHAKE_THRESHOLD && moodRef.current !== "exploded" && moodRef.current !== "dizzy") {
-          triggerDizzy();
+      if (now - lastTime > 120) {
+        const curX = acc.x || 0;
+        const curY = acc.y || 0;
+        const curZ = acc.z || 0;
+
+        if (lastTime !== 0) {
+          const deltaX = Math.abs(curX - lastX);
+          const deltaY = Math.abs(curY - lastY);
+          const deltaZ = Math.abs(curZ - lastZ);
+          const totalDelta = deltaX + deltaY + deltaZ;
+
+          if (totalDelta > SHAKE_THRESHOLD && moodRef.current !== "exploded" && moodRef.current !== "dizzy") {
+            triggerDizzy();
+          }
         }
-        lastX = current.x || 0;
-        lastY = current.y || 0;
-        lastZ = current.z || 0;
+
+        lastTime = now;
+        lastX = curX;
+        lastY = curY;
+        lastZ = curZ;
       }
     };
 
@@ -1813,51 +1825,41 @@ export default function EmoCompanion() {
         </div>
       )}
 
-      {/* --- ONLY SINGLE BUTTON ON SCREEN (OPENS ALL CONTROLS) --- */}
+      {/* SINGLE BUTTON ON SCREEN */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40">
-  {/* Ambient background glow */}
-  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 blur-xl opacity-30 group-hover:opacity-75 transition-opacity duration-500 animate-pulse pointer-events-none" />
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 blur-xl opacity-30 group-hover:opacity-75 transition-opacity duration-500 animate-pulse pointer-events-none" />
 
-  <button
-    onClick={() => setControlPanelOpen(true)}
-    className="group relative flex items-center gap-3 px-7 py-3 rounded-full bg-slate-950/80 hover:bg-slate-900/90 text-cyan-300 font-mono text-sm tracking-wider font-semibold backdrop-blur-xl border border-cyan-500/40 shadow-[0_0_30px_rgba(6,182,212,0.25)] hover:shadow-[0_0_45px_rgba(6,182,212,0.6)] hover:border-cyan-400/80 transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden"
-  >
-    {/* Diagonal shimmer sweep on hover */}
-    <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+        <button
+          onClick={() => setControlPanelOpen(true)}
+          className="group relative flex items-center gap-3 px-7 py-3 rounded-full bg-slate-950/80 hover:bg-slate-900/90 text-cyan-300 font-mono text-sm tracking-wider font-semibold backdrop-blur-xl border border-cyan-500/40 shadow-[0_0_30px_rgba(6,182,212,0.25)] hover:shadow-[0_0_45px_rgba(6,182,212,0.6)] hover:border-cyan-400/80 transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden"
+        >
+          <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
 
-    {/* Expanding radar ping animation */}
-    <span className="relative flex h-3 w-3">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
-      <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
-    </span>
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
+          </span>
 
-    {/* Label */}
-    <span className="uppercase text-xs tracking-widest text-slate-200 group-hover:text-white transition-colors duration-200">
-      Interact
-    </span>
+          <span className="uppercase text-xs tracking-widest text-slate-200 group-hover:text-white transition-colors duration-200">
+            Interact
+          </span>
 
-    {/* Micro command shortcut hint */}
-    <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-cyan-400/80 bg-cyan-950/60 border border-cyan-500/30 rounded">
-      ⌘K
-    </span>
-  </button>
-</div>
+          <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-cyan-400/80 bg-cyan-950/60 border border-cyan-500/30 rounded">
+            ⌘K
+          </span>
+        </button>
+      </div>
 
-      {/* --- ALL-IN-ONE UNIFIED CONTROL PANEL MODAL --- */}
+      {/* ALL-IN-ONE UNIFIED CONTROL PANEL MODAL */}
       {controlPanelOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md">
           <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-slate-950/95 border border-cyan-500/30 p-5 sm:p-6 text-white shadow-2xl flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
             
-            {/* Header with Bio-Metrics & Close */}
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <span className="text-xl">🤖</span>
                 <div>
-                  <h3 className="font-bold text-sm text-cyan-300 font-mono">EMO Control Core</h3>
-                  {/* <div className="flex gap-2 text-[10px] font-mono text-slate-400">
-                    <span>💖 Affection {affection}%</span>
-                    <span>⚡ Energy {energy}%</span>
-                  </div> */}
+                  <h3 className="font-bold text-sm text-cyan-300 font-mono">Interactions</h3>
                 </div>
               </div>
               <button
@@ -1868,7 +1870,7 @@ export default function EmoCompanion() {
               </button>
             </div>
 
-            {/* Top Priority Buttons: Talk & Commands */}
+            {/* Primary Commands */}
             <div className="flex flex-col gap-2">
               <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider font-mono">Primary Commands</span>
               <div className="grid grid-cols-2 gap-2.5">
@@ -1902,7 +1904,6 @@ export default function EmoCompanion() {
 
             {/* Actions & Interactions */}
             <div className="flex flex-col gap-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Interactions & Toys</span>
               <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => {
@@ -1994,9 +1995,7 @@ export default function EmoCompanion() {
             <div className="flex flex-col gap-2.5 pt-2 border-t border-white/10">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Core Settings</span>
               
-              {/* Color Themes */}
               <div>
-                <span className="text-xs text-slate-300 mb-1.5 block">Eye & Mouth Core Color</span>
                 <div className="grid grid-cols-5 gap-2">
                   {CHASSIS_THEMES.map((theme, i) => (
                     <button
@@ -2010,7 +2009,6 @@ export default function EmoCompanion() {
                 </div>
               </div>
 
-              {/* Toggles */}
               <div className="grid grid-cols-2 gap-2 mt-1">
                 <button
                   onClick={() => setMuted((m) => !m)}
@@ -2037,7 +2035,7 @@ export default function EmoCompanion() {
         </div>
       )}
 
-      {/* --- CAMERA & PHOTO CAPTURE OVERLAY --- */}
+      {/* CAMERA & PHOTO CAPTURE OVERLAY */}
       {cameraActive && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
           <div className="relative rounded-3xl overflow-hidden border border-cyan-400 max-w-md w-full aspect-video shadow-2xl">
@@ -2067,7 +2065,7 @@ export default function EmoCompanion() {
         </div>
       )}
 
-      {/* --- FOOD DROP ANIMATION --- */}
+      {/* FOOD DROP ANIMATION */}
       {foodDrop && (
         <div
           className="absolute z-30 text-5xl pointer-events-none transition-all duration-700 ease-in"
@@ -2082,7 +2080,7 @@ export default function EmoCompanion() {
         </div>
       )}
 
-      {/* --- SHOOT SELF TARGETING CROSSHAIR --- */}
+      {/* TARGETING CROSSHAIR */}
       {isShootingSelf && (
         <div
           className="absolute pointer-events-none z-30 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
@@ -2349,7 +2347,7 @@ export default function EmoCompanion() {
         </div>
       )}
 
-      {/* --- PURE BEZEL-LESS DIGITAL ROBOT FACE (EYES + MOUTH INSIDE SCREEN) --- */}
+      {/* DIGITAL ROBOT FACE */}
       {mood !== "exploded" && (
         <div
           ref={robotRef}
@@ -2364,18 +2362,15 @@ export default function EmoCompanion() {
             top: 0,
           }}
         >
-          {/* Inner Screen Depth Glow behind face */}
           <div
             className="absolute inset-0 rounded-full blur-3xl opacity-20 pointer-events-none"
             style={{ background: currentTheme.eyeGlow }}
           />
 
-          {/* OLED Cyber Eyes looking from behind screen glass */}
           <div className="flex items-center gap-9 relative">
             <EmoEye side="left" mood={mood} blink={blink} eyeColor={currentTheme.eyeGlow} lookOffset={lookOffset} />
             <EmoEye side="right" mood={mood} blink={blink} eyeColor={currentTheme.eyeGlow} lookOffset={lookOffset} />
 
-            {/* Blush cheeks */}
             {(mood === "happy" || mood === "eating" || affection > 90) && (
               <>
                 <div className="absolute -left-4 top-10 w-6 h-3 rounded-full bg-pink-500/60 blur-[2px]" />
@@ -2384,7 +2379,6 @@ export default function EmoCompanion() {
             )}
           </div>
 
-          {/* Expressive OLED Digital Mouth */}
           <EmoMouth mood={mood} eyeColor={currentTheme.eyeGlow} isTalking={isTalking} />
         </div>
       )}
