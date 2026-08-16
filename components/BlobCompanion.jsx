@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 
-// --- ROBOT & PHYSICS CONSTANTS ---
+// --- PHYSICS & INTERACTION CONSTANTS ---
 const BASE_GRAVITY = 0.75;
 const AIR_FRICTION = 0.985;
 const WALL_BOUNCE = 0.6;
@@ -12,15 +12,24 @@ const PAD = 16;
 const EXPLODE_THRESHOLD = 10;
 const IDLE_SLEEPY_MS = 18000;
 const IDLE_ASLEEP_MS = 30000;
-const BALL_RADIUS = 20;
+const BALL_RADIUS = 22;
 
-// --- HARDWARE CHASSIS THEMES ---
+// --- COLOR & THEME MATRIX ---
 const CHASSIS_THEMES = [
-  { name: "Cyber Teal", body: "linear-gradient(155deg, #1e293b, #0f172a 60%, #020617 100%)", border: "#38bdf8", eyeGlow: "#38bdf8", accent: "#38bdf8", glow: "rgba(56,189,248,0.45)", particles: ["#38bdf8", "#0284c7", "#e0f2fe"] },
-  { name: "Neon Violet", body: "linear-gradient(155deg, #2e1065, #17072b 60%, #0a0314 100%)", border: "#c084fc", eyeGlow: "#c084fc", accent: "#a855f7", glow: "rgba(192,132,252,0.45)", particles: ["#c084fc", "#7e22ce", "#f3e8ff"] },
-  { name: "Matrix Emerald", body: "linear-gradient(155deg, #064e3b, #022c22 60%, #01140e 100%)", border: "#34d399", eyeGlow: "#4ade80", accent: "#10b981", glow: "rgba(52,211,153,0.45)", particles: ["#34d399", "#10b981", "#a7f3d0"] },
-  { name: "Solar Gold", body: "linear-gradient(155deg, #3f2606, #1c1002 60%, #0d0601 100%)", border: "#fbbf24", eyeGlow: "#facc15", accent: "#f59e0b", glow: "rgba(251,191,36,0.45)", particles: ["#facc15", "#f59e0b", "#fef08a"] },
-  { name: "Crimson Mecha", body: "linear-gradient(155deg, #4c0519, #25020c 60%, #100105 100%)", border: "#f43f5e", eyeGlow: "#fb7185", accent: "#e11d48", glow: "rgba(244,63,94,0.45)", particles: ["#f43f5e", "#e11d48", "#ffe4e6"] },
+  { name: "Cyber Teal", eyeGlow: "#38bdf8", accent: "#38bdf8", glow: "rgba(56,189,248,0.5)", particles: ["#38bdf8", "#0284c7", "#e0f2fe"] },
+  { name: "Neon Violet", eyeGlow: "#c084fc", accent: "#a855f7", glow: "rgba(192,132,252,0.5)", particles: ["#c084fc", "#7e22ce", "#f3e8ff"] },
+  { name: "Matrix Emerald", eyeGlow: "#4ade80", accent: "#10b981", glow: "rgba(52,211,153,0.5)", particles: ["#34d399", "#10b981", "#a7f3d0"] },
+  { name: "Solar Gold", eyeGlow: "#facc15", accent: "#f59e0b", glow: "rgba(251,191,36,0.5)", particles: ["#facc15", "#f59e0b", "#fef08a"] },
+  { name: "Crimson Mecha", eyeGlow: "#fb7185", accent: "#e11d48", glow: "rgba(244,63,94,0.5)", particles: ["#f43f5e", "#e11d48", "#ffe4e6"] },
+];
+
+const FOOD_ITEMS = [
+  { name: "Cyber Pizza", icon: "🍕", energy: 20 },
+  { name: "Nano Burger", icon: "🍔", energy: 25 },
+  { name: "Quantum Apple", icon: "🍎", energy: 15 },
+  { name: "Glitch Donut", icon: "🍩", energy: 18 },
+  { name: "Battery Pack", icon: "🔋", energy: 30 },
+  { name: "Taco Matrix", icon: "🌮", energy: 20 },
 ];
 
 const COMPLIMENTS = [
@@ -48,6 +57,12 @@ const FORTUNE_ANSWERS = [
 ];
 
 const COMMAND_LIST = [
+  { group: "Special Robot Actions 📸🍔💥", items: [
+    { cmd: '"Take a picture" / "Photo"', desc: "Opens camera, counts down, snaps a polaroid photo!" },
+    { cmd: '"Eat" / "Feed me"', desc: "Opens mouth wide, munches cyber food, restores energy, and burps!" },
+    { cmd: '"Shoot" / "Self-destruct"', desc: "Locks crosshairs, fires plasma recoil blast, and reboots." },
+    { cmd: '"Shake" / "Get dizzy"', desc: "Eyes spin in hypnotic dizziness (or shake mobile device!)." },
+  ]},
   { group: "Animal Mimicry & Sounds 🐾", items: [
     { cmd: '"Cat sound" / "Meow"', desc: "EMO imitates a cute cat meow." },
     { cmd: '"Dog sound" / "Bark"', desc: "EMO barks like an energetic puppy." },
@@ -55,20 +70,20 @@ const COMMAND_LIST = [
     { cmd: '"Duck sound" / "Quack"', desc: "EMO quacks like a duck." },
     { cmd: '"Frog sound" / "Croak"', desc: "EMO croaks like a swamp frog." },
     { cmd: '"Cow sound" / "Moo"', desc: "EMO makes a deep resonant moo." },
-    { cmd: '"Lion sound" / "Roar"', desc: "EMO roars like a ferocious apex predator." },
+    { cmd: '"Lion sound" / "Roar"', desc: "EMO roars like an apex predator." },
     { cmd: '"Monkey sound" / "Ape"', desc: "EMO chatters like a playful chimp." },
     { cmd: '"Sheep sound" / "Baa"', desc: "EMO bleats like a sheep." },
   ]},
   { group: "Live Web APIs (Real Data)", items: [
-    { cmd: '"Weather"', desc: "Fetches live hyperlocal temperature & sky conditions (Open-Meteo API)." },
-    { cmd: '"Joke" / "Tell me a joke"', desc: "Fetches live programming & pun jokes (JokeAPI)." },
-    { cmd: '"Trivia" / "Live Trivia"', desc: "Fetches interactive multiple-choice trivia (OpenTDB API)." },
-    { cmd: '"Pokedex" / "Scan Pikachu"', desc: "Pulls real Pokémon stats, types & pixel sprites (PokéAPI)." },
-    { cmd: '"Space" / "NASA Scan"', desc: "Fetches today's NASA Astronomy discovery (NASA APOD API)." },
-    { cmd: '"Define [word]"', desc: "Looks up definitions & real pronunciations (Free Dictionary API)." },
+    { cmd: '"Weather"', desc: "Live hyperlocal temperature & sky conditions (Open-Meteo API)." },
+    { cmd: '"Joke" / "Tell me a joke"', desc: "Live programming & pun jokes (JokeAPI)." },
+    { cmd: '"Trivia" / "Live Trivia"', desc: "Interactive multiple-choice trivia (OpenTDB API)." },
+    { cmd: '"Pokedex" / "Scan Pikachu"', desc: "Pulls Pokémon stats, types & pixel sprites (PokéAPI)." },
+    { cmd: '"Space" / "NASA Scan"', desc: "Today's NASA Astronomy discovery (NASA APOD API)." },
+    { cmd: '"Define [word]"', desc: "Looks up definitions & real pronunciations (Dictionary API)." },
   ]},
   { group: "Games & Interactive Modes", items: [
-    { cmd: '"Simon says" / "Memory"', desc: "Memory matrix sequence game on OLED." },
+    { cmd: '"Simon says" / "Memory"', desc: "Memory matrix sequence game." },
     { cmd: '"Play soccer" / "Football"', desc: "Spawns soccer match with physics scoring." },
     { cmd: '"Laser chase" / "Laser"', desc: "Interactive laser hunt tracking mode." },
     { cmd: '"Rock paper scissors"', desc: "RPS showdown against EMO." },
@@ -86,7 +101,7 @@ const COMMAND_LIST = [
   ]}
 ];
 
-// --- COMPLETE AUDIO SYNTHESIZER ENGINE ---
+// --- COMPLETE PROCEDURAL AUDIO SYNTHESIZER ---
 function useEmoAudio(mutedRef) {
   const ctxRef = useRef(null);
   const danceIntervalRef = useRef(null);
@@ -143,7 +158,6 @@ function useEmoAudio(mutedRef) {
     } catch {}
   }, [mutedRef]);
 
-  // Procedural Animal Sounds
   const animalSounds = {
     cat: () => {
       if (mutedRef.current) return;
@@ -298,6 +312,26 @@ function useEmoAudio(mutedRef) {
     [600, 900, 600, 900].forEach((f, i) => tone(f, 0.18, "sawtooth", 0.12, i * 0.18));
   }, [tone]);
 
+  const munch = useCallback(() => {
+    [0, 0.12, 0.24].forEach((del) => {
+      noiseBurst(0.08, 0.25, 1600, del);
+      tone(220, 0.06, "triangle", 0.15, del, 140);
+    });
+  }, [noiseBurst, tone]);
+
+  const cameraClick = useCallback(() => {
+    noiseBurst(0.05, 0.2, 4000);
+    setTimeout(() => {
+      noiseBurst(0.12, 0.3, 2500);
+      tone(1200, 0.08, "sine", 0.15, 0, 600);
+    }, 80);
+  }, [noiseBurst, tone]);
+
+  const plasmaBlast = useCallback(() => {
+    tone(880, 0.25, "sawtooth", 0.3, 0, 80);
+    noiseBurst(0.4, 0.35, 1800, 0.05);
+  }, [tone, noiseBurst]);
+
   return {
     tone,
     stopMusic,
@@ -305,6 +339,9 @@ function useEmoAudio(mutedRef) {
     playLullaby,
     beatbox,
     siren,
+    munch,
+    cameraClick,
+    plasmaBlast,
     animalSounds,
     laserBeep: () => tone(1200, 0.05, "sawtooth", 0.12, 0, 400),
     poke: (pitchBoost = 0) => tone(560 + pitchBoost, 0.08, "sine", 0.15, 0, 380 + pitchBoost),
@@ -344,55 +381,159 @@ function useEmoAudio(mutedRef) {
   };
 }
 
-// --- EXPRESSIVE OLED ROBOT EYES ---
-function EmoEye({ side, mood, blink, eyeColor }) {
+// --- EXPRESSIVE DIGITAL MOUTH ---
+function EmoMouth({ mood, eyeColor, isTalking }) {
+  const isEating = mood === "eating";
+  const isHappy = mood === "happy" || mood === "laughing" || mood === "dancing";
+  const isAngry = mood === "angry" || mood === "shooting";
+  const isScared = mood === "scared" || mood === "falling";
+  const isSad = mood === "sad";
+  const isSleepy = mood === "sleepy" || mood === "asleep";
+  const isSurprised = mood === "surprised";
+  const isHypno = mood === "hypno" || mood === "dizzy";
+
+  let width = 24;
+  let height = 4;
+  let borderRadius = "4px";
+  let backgroundColor = eyeColor;
+  let transform = "none";
+
+  if (isEating) {
+    width = 38;
+    height = 24;
+    borderRadius = "50%";
+    backgroundColor = "#f43f5e";
+    transform = "scaleY(1.2)";
+  } else if (isTalking) {
+    width = 22;
+    height = 14;
+    borderRadius = "50%";
+    backgroundColor = eyeColor;
+  } else if (isHappy) {
+    width = 32;
+    height = 14;
+    borderRadius = "0 0 30px 30px";
+    backgroundColor = eyeColor;
+  } else if (isSad) {
+    width = 28;
+    height = 12;
+    borderRadius = "30px 30px 0 0";
+    backgroundColor = isAngry ? "#f43f5e" : "#38bdf8";
+  } else if (isAngry) {
+    width = 30;
+    height = 6;
+    borderRadius = "2px";
+    backgroundColor = "#f43f5e";
+    transform = "rotate(-4deg)";
+  } else if (isScared || isSurprised) {
+    width = 18;
+    height = 24;
+    borderRadius = "50%";
+    backgroundColor = eyeColor;
+  } else if (isHypno) {
+    width = 24;
+    height = 6;
+    borderRadius = "8px";
+    backgroundColor = eyeColor;
+    transform = "scaleX(1.3) skewX(15deg)";
+  } else if (isSleepy) {
+    width = 16;
+    height = 4;
+    borderRadius = "50%";
+    backgroundColor = eyeColor;
+  }
+
+  return (
+    <div className="flex items-center justify-center transition-all duration-150 mt-4">
+      <div
+        className="transition-all duration-150"
+        style={{
+          width,
+          height,
+          borderRadius,
+          backgroundColor,
+          boxShadow: `0 0 20px ${isAngry || isEating ? "#f43f5e" : eyeColor}`,
+          transform,
+        }}
+      />
+    </div>
+  );
+}
+
+// --- PURE IMMERSIVE DIGITAL OLED EYES ---
+function EmoEye({ side, mood, blink, eyeColor, lookOffset }) {
   const isDancing = mood === "dancing";
   const isHappy = mood === "happy" || mood === "laughing";
   const isAngry = mood === "angry";
   const isScared = mood === "scared" || mood === "falling";
   const isSleepy = mood === "sleepy" || mood === "asleep";
   const isSurprised = mood === "surprised";
-  const isHypno = mood === "hypno";
+  const isHypno = mood === "hypno" || mood === "dizzy";
   const isSad = mood === "sad";
+  const isEating = mood === "eating";
+  const isShooting = mood === "shooting";
 
   return (
     <div
       className="relative flex items-center justify-center transition-all duration-150 overflow-hidden"
       style={{
-        width: 44,
-        height: blink || isSleepy ? 4 : isSurprised || isScared ? 50 : isSad ? 32 : 42,
-        backgroundColor: isAngry ? "#f43f5e" : isSad ? "#38bdf8" : eyeColor,
-        borderRadius: isAngry
+        width: 80,
+        height: blink || isSleepy ? 8 : isSurprised || isScared || isShooting ? 95 : isSad ? 60 : 80,
+        backgroundColor: isAngry || isShooting ? "#f43f5e" : isSad ? "#38bdf8" : eyeColor,
+        borderRadius: isAngry || isShooting
           ? side === "left"
-            ? "8px 30px 8px 8px"
-            : "30px 8px 8px 8px"
+            ? "14px 50px 14px 14px"
+            : "50px 14px 14px 14px"
           : isSad
           ? side === "left"
-            ? "22px 8px 16px 16px"
-            : "8px 22px 16px 16px"
+            ? "40px 14px 28px 28px"
+            : "14px 40px 28px 28px"
           : isScared
           ? "50%"
-          : isHappy
-          ? "22px 22px 6px 6px"
-          : "10px",
-        boxShadow: `0 0 20px ${isAngry ? "#f43f5e" : eyeColor}, inset 0 0 10px rgba(255,255,255,0.75)`,
-        transform: isDancing ? (side === "left" ? "rotate(-12deg) scaleY(1.1)" : "rotate(12deg) scaleY(1.1)") : "none",
+          : isHappy || isEating
+          ? "40px 40px 10px 10px"
+          : "22px",
+        boxShadow: `0 0 45px ${isAngry || isShooting ? "#f43f5e" : eyeColor}, inset 0 0 20px rgba(255,255,255,0.9)`,
+        transform: isDancing
+          ? side === "left"
+            ? `rotate(-14deg) scaleY(1.15) translate(${lookOffset.x}px, ${lookOffset.y}px)`
+            : `rotate(14deg) scaleY(1.15) translate(${lookOffset.x}px, ${lookOffset.y}px)`
+          : isHypno
+          ? `rotate(180deg) translate(${lookOffset.x}px, ${lookOffset.y}px)`
+          : `translate(${lookOffset.x}px, ${lookOffset.y}px)`,
       }}
     >
       {isHypno && (
-        <div className="w-7 h-7 rounded-full border-2 border-slate-900 border-dashed animate-spin" />
+        <div className="w-12 h-12 rounded-full border-4 border-black/80 border-dashed animate-spin" />
       )}
 
-      {!blink && !isSleepy && !isAngry && !isHypno && !isSad && (
-        <div
-          className="absolute rounded-full bg-white/95 shadow-sm"
-          style={{
-            width: isScared ? 6 : 10,
-            height: isScared ? 6 : 10,
-            top: 4,
-            [side === "left" ? "right" : "left"]: 6,
-          }}
-        />
+      {isShooting && (
+        <div className="absolute inset-0 flex items-center justify-center text-black font-black text-sm">
+          ✕
+        </div>
+      )}
+
+      {!blink && !isSleepy && !isAngry && !isHypno && !isSad && !isShooting && (
+        <>
+          <div
+            className="absolute rounded-full bg-white shadow-sm transition-all duration-100"
+            style={{
+              width: isScared ? 10 : 18,
+              height: isScared ? 10 : 18,
+              top: 8 + lookOffset.y * 0.4,
+              [side === "left" ? "right" : "left"]: 10 - lookOffset.x * 0.4,
+            }}
+          />
+          <div
+            className="absolute rounded-full bg-white/70 transition-all duration-100"
+            style={{
+              width: 7,
+              height: 7,
+              bottom: 12 - lookOffset.y * 0.3,
+              [side === "left" ? "left" : "right"]: 14 + lookOffset.x * 0.3,
+            }}
+          />
+        </>
       )}
     </div>
   );
@@ -402,19 +543,21 @@ export default function EmoCompanion() {
   const wrapRef = useRef(null);
   const robotRef = useRef(null);
   const ballElemRef = useRef(null);
+  const videoRef = useRef(null);
 
   // States & Feelings Engine
   const [mood, setMoodState] = useState("idle");
   const [affection, setAffection] = useState(85);
   const [energy, setEnergy] = useState(90);
   const [blink, setBlink] = useState(false);
-  const [msg, setMsg] = useState("Hi! I'm EMO. Tap a command or talk to me!");
+  const [msg, setMsg] = useState("");
   const [themeIdx, setThemeIdx] = useState(0);
   const [muted, setMuted] = useState(false);
   const [activeToy, setActiveToy] = useState("hand");
   const [isListening, setIsListening] = useState(false);
+  const [isTalking, setIsTalking] = useState(false);
   const [clockDisplay, setClockDisplay] = useState(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [controlPanelOpen, setControlPanelOpen] = useState(false);
   const [commandsOpen, setCommandsOpen] = useState(false);
   const [discoActive, setDiscoActive] = useState(false);
   const [matrixActive, setMatrixActive] = useState(false);
@@ -423,10 +566,20 @@ export default function EmoCompanion() {
   const [comboMeter, setComboMeter] = useState(0);
   const [laserPos, setLaserPos] = useState(null);
   const [gameOverlay, setGameOverlay] = useState(null);
-  const [robotSize, setRobotSize] = useState({ w: 185, h: 165 });
   const [simonGame, setSimonGame] = useState(null);
   const [liveQuiz, setLiveQuiz] = useState(null);
   const [pokemonCard, setPokemonCard] = useState(null);
+  const [lookOffset, setLookOffset] = useState({ x: 0, y: 0 });
+
+  // Camera & Interactive Features
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraCountdown, setCameraCountdown] = useState(null);
+  const [snapshotPhoto, setSnapshotPhoto] = useState(null);
+  const [foodDrop, setFoodDrop] = useState(null);
+  const [isShootingSelf, setIsShootingSelf] = useState(false);
+  const [crosshairPos, setCrosshairPos] = useState({ x: 0, y: 0 });
+
+  const robotSize = { w: 260, h: 180 };
 
   const moodRef = useRef("idle");
   const setMood = (m) => {
@@ -447,13 +600,13 @@ export default function EmoCompanion() {
   const sounds = useEmoAudio(mutedRef);
 
   // Physics States
-  const phys = useRef({ x: 200, y: 300, vx: 0, vy: 0, scaleX: 1, scaleY: 1, rotation: 0, held: false, stuck: false, danceOffset: 0 });
-  const ballPhys = useRef({ x: 140, y: 200, vx: 5, vy: -4, held: false, active: true });
+  const phys = useRef({ x: 0, y: 0, vx: 0, vy: 0, scaleX: 1, scaleY: 1, rotation: 0, held: false, stuck: false, danceOffset: 0 });
+  const ballPhys = useRef({ x: 0, y: 0, vx: 5, vy: -4, held: false, active: true });
   const bounds = useRef({ left: PAD, top: PAD, right: 600, bottom: 600 });
   const dragStart = useRef({ x: 0, y: 0, time: 0, blobX: 0, blobY: 0 });
   const ballDragStart = useRef({ x: 0, y: 0, time: 0, lastX: 0, lastY: 0, lastTime: 0 });
   const lastMove = useRef({ x: 0, y: 0, time: 0 });
-  const followTarget = useRef({ x: 200, y: 300 });
+  const followTarget = useRef({ x: 0, y: 0 });
   const pointerOffset = useRef({ dx: 0, dy: 0 });
   const rubAccum = useRef(0);
   const totalWiggle = useRef(0);
@@ -489,6 +642,9 @@ export default function EmoCompanion() {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.pitch = 1.6;
       utterance.rate = 1.1;
+      utterance.onstart = () => setIsTalking(true);
+      utterance.onend = () => setIsTalking(false);
+      utterance.onerror = () => setIsTalking(false);
       window.speechSynthesis.speak(utterance);
     } catch {}
   }, [mutedRef]);
@@ -508,7 +664,7 @@ export default function EmoCompanion() {
     const cy = phys.current.y;
     const newHearts = Array.from({ length: 5 }).map((_, i) => ({
       id: Date.now() + i,
-      x: cx + (Math.random() - 0.5) * 50,
+      x: cx + (Math.random() - 0.5) * 60,
       y: cy - robotSize.h * 0.4,
       delay: i * 0.1,
     }));
@@ -527,10 +683,10 @@ export default function EmoCompanion() {
     const theme = CHASSIS_THEMES[themeIdx];
     const cx = phys.current.x;
     const cy = phys.current.y;
-    const n = 22;
+    const n = 28;
     const parts = Array.from({ length: n }).map((_, i) => {
       const angle = (Math.PI * 2 * i) / n + Math.random() * 0.3;
-      const dist = 70 + Math.random() * 120;
+      const dist = 90 + Math.random() * 160;
       return {
         id: Date.now() + i,
         x: cx,
@@ -538,7 +694,7 @@ export default function EmoCompanion() {
         tx: Math.cos(angle) * dist,
         ty: Math.sin(angle) * dist - 30,
         color: theme.particles[i % theme.particles.length],
-        size: 8 + Math.random() * 16,
+        size: 12 + Math.random() * 24,
       };
     });
     setParticles(parts);
@@ -557,16 +713,182 @@ export default function EmoCompanion() {
     setTimeout(() => {
       const b = bounds.current;
       phys.current.x = (b.left + b.right) / 2;
-      phys.current.y = b.bottom - robotSize.h / 2;
+      phys.current.y = (b.top + b.bottom) / 2;
       phys.current.scaleX = 0.05;
       phys.current.scaleY = 0.05;
       sounds.reform();
       setMood("idle");
-      setMsg("Reboot complete! All systems optimal! 🦾✨");
-      speakText("Systems online!");
+      setMsg("Reboot complete! Face restored! ✨");
+      speakText("Systems restored!");
       markInteraction();
     }, 950);
   };
+
+  // --- TAKE PICTURE WORKFLOW ---
+  const triggerTakePic = async () => {
+    setMsg("Opening Optical Sensor... 📸");
+    sounds.chirp();
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setMsg("Camera access not supported on this browser!");
+        return;
+      }
+      setCameraActive(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      setCameraCountdown(3);
+      speakText("Three");
+      sounds.tone(700, 0.1, "sine", 0.2);
+
+      let count = 3;
+      const countTimer = setInterval(() => {
+        count -= 1;
+        if (count > 0) {
+          setCameraCountdown(count);
+          sounds.tone(700, 0.1, "sine", 0.2);
+          speakText(`${count}`);
+        } else if (count === 0) {
+          setCameraCountdown("SMILE! 📸");
+          sounds.tone(1200, 0.2, "square", 0.25);
+          speakText("Smile!");
+        } else {
+          clearInterval(countTimer);
+          setCameraCountdown(null);
+
+          if (videoRef.current) {
+            const canvas = document.createElement("canvas");
+            canvas.width = videoRef.current.videoWidth || 640;
+            canvas.height = videoRef.current.videoHeight || 480;
+            const cctx = canvas.getContext("2d");
+            cctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL("image/png");
+            setSnapshotPhoto(dataUrl);
+            sounds.cameraClick();
+
+            if (wrapRef.current) {
+              wrapRef.current.style.backgroundColor = "#ffffff";
+              setTimeout(() => {
+                if (wrapRef.current) wrapRef.current.style.backgroundColor = "";
+              }, 120);
+            }
+
+            stream.getTracks().forEach((track) => track.stop());
+            setCameraActive(false);
+            setMood("happy");
+            setMsg("Say cheese! Photo stored in neural memory! 🖼️✨");
+            speakText("Picture captured!");
+          }
+        }
+      }, 1000);
+    } catch {
+      setCameraActive(false);
+      setMsg("Camera permission denied or camera unavailable! 🔒");
+    }
+  };
+
+  // --- EAT FOOD WORKFLOW ---
+  const triggerEatFood = (customFood) => {
+    const selected = customFood || FOOD_ITEMS[Math.floor(Math.random() * FOOD_ITEMS.length)];
+    const startX = phys.current.x + (Math.random() - 0.5) * 80;
+    const startY = bounds.current.top + 50;
+
+    setFoodDrop({ item: selected, x: startX, y: startY });
+    setMood("surprised");
+    setMsg(`Ooh! ${selected.name}! Om nom nom! 😋`);
+    sounds.chirp();
+    speakText(`Yummy ${selected.name}!`);
+
+    setTimeout(() => {
+      setMood("eating");
+      sounds.munch();
+      pulseSquish(1.3, 0.8);
+      setEnergy((e) => Math.min(100, e + selected.energy));
+      setAffection((a) => Math.min(100, a + 4));
+
+      setTimeout(() => {
+        sounds.munch();
+        pulseSquish(1.15, 0.9);
+      }, 400);
+
+      setTimeout(() => {
+        setFoodDrop(null);
+        sounds.boing();
+        setMood("happy");
+        setMsg("*BURP* Delicious! Energy restored! 🔋😋");
+        speakText("Burp! That was super tasty!");
+        clearMoodSoon("happy", 1500);
+      }, 950);
+    }, 700);
+  };
+
+  // --- SHOOT / SELF DESTRUCT BLAST ---
+  const triggerShootSelf = () => {
+    setIsShootingSelf(true);
+    setCrosshairPos({ x: phys.current.x, y: phys.current.y });
+    setMood("shooting");
+    setMsg("TARGET ACQUIRED: FIRING AT CORE! 🎯🔴");
+    sounds.siren();
+    speakText("Target locked. Firing in 3, 2, 1!");
+
+    setTimeout(() => {
+      sounds.plasmaBlast();
+      pulseSquish(1.4, 0.6);
+      if (wrapRef.current) {
+        wrapRef.current.style.animation = "emoShake 0.6s ease";
+        setTimeout(() => {
+          if (wrapRef.current) wrapRef.current.style.animation = "";
+        }, 600);
+      }
+      setIsShootingSelf(false);
+      explode();
+    }, 1800);
+  };
+
+  // --- SHAKE / DIZZY TRIGGER ---
+  const triggerDizzy = () => {
+    setMood("dizzy");
+    setMsg("WHOAAA! The screen is spinning! 🌀😵");
+    speakText("Whoa! So dizzy!");
+    sounds.whee();
+    pulseSquish(1.2, 1.2);
+    clearMoodSoon("dizzy", 4500);
+  };
+
+  // Gyroscope / Device Motion Shake Sensor
+  useEffect(() => {
+    let lastX = 0, lastY = 0, lastZ = 0;
+    let lastTime = 0;
+    const SHAKE_THRESHOLD = 22;
+
+    const handleDeviceMotion = (e) => {
+      const current = e.accelerationIncludingGravity;
+      if (!current) return;
+      const now = performance.now();
+      if (now - lastTime > 150) {
+        const diffTime = now - lastTime;
+        lastTime = now;
+        const speed = Math.abs(current.x + current.y + current.z - lastX - lastY - lastZ) / diffTime * 10000;
+        if (speed > SHAKE_THRESHOLD && moodRef.current !== "exploded" && moodRef.current !== "dizzy") {
+          triggerDizzy();
+        }
+        lastX = current.x || 0;
+        lastY = current.y || 0;
+        lastZ = current.z || 0;
+      }
+    };
+
+    if (typeof window !== "undefined" && window.DeviceMotionEvent) {
+      window.addEventListener("devicemotion", handleDeviceMotion);
+    }
+    return () => {
+      if (typeof window !== "undefined" && window.DeviceMotionEvent) {
+        window.removeEventListener("devicemotion", handleDeviceMotion);
+      }
+    };
+  }, []);
 
   const nearestEdge = () => {
     const b = bounds.current;
@@ -657,7 +979,6 @@ export default function EmoCompanion() {
     }
   };
 
-  // Animal Sound Handler
   const triggerAnimalSound = (animalKey) => {
     const key = animalKey.toLowerCase();
     if (key.includes("cat") || key.includes("kitten") || key.includes("meow")) {
@@ -708,7 +1029,7 @@ export default function EmoCompanion() {
 
   // --- LIVE PUBLIC API INTEGRATIONS ---
   const fetchLiveWeather = async () => {
-    setMsg("Connecting to Open-Meteo orbital satellite... 🛰️");
+    setMsg("Connecting to weather orbital satellites... 🛰️");
     setMood("surprised");
     sounds.chirp();
     try {
@@ -744,7 +1065,7 @@ export default function EmoCompanion() {
   };
 
   const fetchLiveJoke = async () => {
-    setMsg("Fetching certified fresh joke from JokeAPI... 📡");
+    setMsg("Fetching punchline from JokeAPI... 📡");
     sounds.chirp();
     try {
       const res = await fetch("https://v2.jokeapi.dev/joke/Programming,Pun?blacklistFlags=nsfw,racist,sexist");
@@ -806,12 +1127,12 @@ export default function EmoCompanion() {
       sounds.boing();
       setTimeout(() => setPokemonCard(null), 8000);
     } catch {
-      setMsg(`Pokédex: Target "${name}" not found in Kanto/Johto registry!`);
+      setMsg(`Pokédex: Target "${name}" not found in registry!`);
     }
   };
 
   const fetchNasaSpaceScan = async () => {
-    setMsg("Scanning deep space via NASA APOD satellite... 🌌🔭");
+    setMsg("Scanning deep space via NASA APOD... 🌌🔭");
     setMood("surprised");
     sounds.laserBeep();
     try {
@@ -819,7 +1140,7 @@ export default function EmoCompanion() {
       const data = await res.json();
       setMood("happy");
       setMsg(`NASA Scan: ${data.title} (${data.date}) ✨`);
-      speakText(`Deep space scan complete. Today's discovery is: ${data.title}`);
+      speakText(`Deep space discovery is: ${data.title}`);
       sounds.chirp();
     } catch {
       setMsg("Deep space sensor telemetry failed!");
@@ -863,7 +1184,15 @@ export default function EmoCompanion() {
       const txt = commandText.toLowerCase();
       markInteraction();
 
-      if (
+      if (txt.includes("picture") || txt.includes("photo") || txt.includes("selfie") || txt.includes("camera") || txt.includes("snap")) {
+        triggerTakePic();
+      } else if (txt.includes("eat") || txt.includes("feed") || txt.includes("food") || txt.includes("hungry") || txt.includes("burger") || txt.includes("pizza") || txt.includes("apple")) {
+        triggerEatFood();
+      } else if (txt.includes("shoot") || txt.includes("blast") || txt.includes("fire") || txt.includes("destroy") || txt.includes("laser self")) {
+        triggerShootSelf();
+      } else if (txt.includes("shake") || txt.includes("dizzy") || txt.includes("spin") || txt.includes("hypno")) {
+        triggerDizzy();
+      } else if (
         txt.includes("cat") ||
         txt.includes("dog") ||
         txt.includes("bird") ||
@@ -945,14 +1274,9 @@ export default function EmoCompanion() {
         speakText("Alert! Emergency protocol engaged!");
         sounds.siren();
         clearMoodSoon("scared", 2500);
-      } else if (txt.includes("hypno") || txt.includes("dizzy")) {
-        setMood("hypno");
-        setMsg("You are getting sleepy... 🌀");
-        speakText("Hypnosis protocol engaged!");
-        clearMoodSoon("hypno", 4000);
       } else if (txt.includes("sad") || txt.includes("cry")) {
         setMood("sad");
-        setMsg("Aww... need a virtual hug? 🥺");
+        setMsg("Aww... need a hug? 🥺");
         speakText("I am feeling a little down today.");
         clearMoodSoon("sad", 4000);
       } else if (txt.includes("timer") || txt.includes("focus")) {
@@ -1097,41 +1421,50 @@ export default function EmoCompanion() {
     }
   };
 
-  // Responsive boundary setup
+  // Center Screen Initialization & Boundary Setup
   useEffect(() => {
     const updateBounds = () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      const isMobile = w < 640;
-      const rw = isMobile ? 150 : 185;
-      const rh = isMobile ? 135 : 165;
-      setRobotSize({ w: rw, h: rh });
 
       bounds.current = { left: PAD, top: PAD + 60, right: w - PAD, bottom: h - PAD - 80 };
-      if (phys.current.x === 200 && phys.current.y === 300) {
+
+      // Initialize EXACTLY in the middle of the screen
+      if (phys.current.x === 0 && phys.current.y === 0) {
         phys.current.x = w / 2;
         phys.current.y = h / 2;
-        followTarget.current = { x: phys.current.x, y: phys.current.y };
-        ballPhys.current.x = w / 2 - 60;
+        followTarget.current = { x: w / 2, y: h / 2 };
+        ballPhys.current.x = w / 2 - 70;
         ballPhys.current.y = h / 2 - 40;
       }
     };
     updateBounds();
     window.addEventListener("resize", updateBounds);
 
-    const onPointerMove = (e) => {
+    // Gaze tracking: eyes track pointer/cursor across the screen
+    const onPointerMoveGlobal = (e) => {
       const clientX = e.touches && e.touches.length ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches && e.touches.length ? e.touches[0].clientY : e.clientY;
       if (activeToyRef.current === "laser") setLaserPos({ x: clientX, y: clientY });
+
+      // Calculate gaze angle
+      const dx = clientX - phys.current.x;
+      const dy = clientY - phys.current.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const maxOffset = 10;
+      setLookOffset({
+        x: (dx / dist) * Math.min(dist / 30, maxOffset),
+        y: (dy / dist) * Math.min(dist / 30, maxOffset),
+      });
     };
 
-    window.addEventListener("mousemove", onPointerMove);
-    window.addEventListener("touchmove", onPointerMove, { passive: true });
+    window.addEventListener("mousemove", onPointerMoveGlobal);
+    window.addEventListener("touchmove", onPointerMoveGlobal, { passive: true });
 
     return () => {
       window.removeEventListener("resize", updateBounds);
-      window.removeEventListener("mousemove", onPointerMove);
-      window.removeEventListener("touchmove", onPointerMove);
+      window.removeEventListener("mousemove", onPointerMoveGlobal);
+      window.removeEventListener("touchmove", onPointerMoveGlobal);
     };
   }, []);
 
@@ -1232,7 +1565,7 @@ export default function EmoCompanion() {
     } else if (totalDist < 45) {
       sounds.boing();
       pulseSquish(1.22, 0.78);
-      setMsg(["Robot hugs!", "Squishy!", "Purrr~"][Math.floor(Math.random() * 3)]);
+      setMsg(["Screen hugs!", "Squishy!", "Purrr~"][Math.floor(Math.random() * 3)]);
       phys.current.vx = 0;
       phys.current.vy = 0;
       setMood("happy");
@@ -1245,7 +1578,7 @@ export default function EmoCompanion() {
     }
   };
 
-  // Main Animation & Physics Loop
+  // Main Physics & Loop
   useEffect(() => {
     let blinkTimer = setTimeout(function loopBlink() {
       setBlink(true);
@@ -1262,7 +1595,7 @@ export default function EmoCompanion() {
       const halfW = robotSize.w / 2;
       const halfH = robotSize.h / 2;
 
-      // 1. Robot Physics
+      // 1. Robot Internal Physics
       if (moodRef.current !== "exploded") {
         if (p.stuck) {
           p.x += (stuckTarget.current.x - p.x) * 0.35;
@@ -1347,8 +1680,11 @@ export default function EmoCompanion() {
         }
 
         if (moodRef.current === "dancing") {
-          p.danceOffset = Math.sin(now / 90) * 10;
-          p.rotation = Math.sin(now / 180) * 12;
+          p.danceOffset = Math.sin(now / 90) * 12;
+          p.rotation = Math.sin(now / 180) * 14;
+        } else if (moodRef.current === "dizzy") {
+          p.danceOffset = Math.sin(now / 70) * 8;
+          p.rotation = Math.sin(now / 90) * 20;
         } else {
           p.danceOffset = 0;
           p.rotation += (0 - p.rotation) * 0.15;
@@ -1387,7 +1723,7 @@ export default function EmoCompanion() {
           const bdx = bp.x - p.x;
           const bdy = bp.y - p.y;
           const dist = Math.hypot(bdx, bdy);
-          const minDist = halfW + BALL_RADIUS;
+          const minDist = halfW * 0.6 + BALL_RADIUS;
 
           if (dist < minDist) {
             const nx = bdx / (dist || 1);
@@ -1429,7 +1765,7 @@ export default function EmoCompanion() {
       if (unstickTimer.current) clearTimeout(unstickTimer.current);
       if (doubleTapTimer.current) clearTimeout(doubleTapTimer.current);
     };
-  }, [sounds, laserPos, robotSize]);
+  }, [sounds, laserPos]);
 
   const currentTheme = CHASSIS_THEMES[themeIdx];
   const comboRatio = Math.min(comboMeter / EXPLODE_THRESHOLD, 1);
@@ -1438,23 +1774,23 @@ export default function EmoCompanion() {
   return (
     <div
       ref={wrapRef}
-      className={`fixed inset-0 overflow-hidden select-none touch-none ${discoActive ? "animate-pulse" : ""}`}
+      className={`fixed inset-0 overflow-hidden select-none touch-none bg-black ${discoActive ? "animate-pulse" : ""}`}
       style={{
         background: matrixActive
-          ? "radial-gradient(circle at 50% 50%, #022c22 0%, #01140e 60%, #000000 100%)"
+          ? "radial-gradient(circle at 50% 50%, #022c22 0%, #000000 100%)"
           : discoActive
-          ? "radial-gradient(circle at 50% 50%, #4c0519 0%, #1e1b4b 50%, #030712 100%)"
-          : "radial-gradient(circle at 50% 30%, #0f172a 0%, #020617 100%)",
+          ? "radial-gradient(circle at 50% 50%, #3b0764 0%, #000000 100%)"
+          : "radial-gradient(circle at 50% 50%, #080c14 0%, #000000 100%)",
         cursor: activeToy === "laser" ? "crosshair" : "default",
       }}
     >
       <style>{`
         @keyframes emoShake {
           0%, 100% { transform: translate(0,0); }
-          20% { transform: translate(-8px, 6px); }
-          40% { transform: translate(8px, -6px); }
-          60% { transform: translate(-6px, -6px); }
-          80% { transform: translate(6px, 6px); }
+          20% { transform: translate(-12px, 8px); }
+          40% { transform: translate(12px, -8px); }
+          60% { transform: translate(-10px, -8px); }
+          80% { transform: translate(10px, 8px); }
         }
         @keyframes emoParticle {
           0% { transform: translate(0,0) scale(1); opacity: 1; }
@@ -1462,181 +1798,305 @@ export default function EmoCompanion() {
         }
         @keyframes emoHeart {
           0% { transform: translate(0,0) scale(0.5); opacity: 1; }
-          100% { transform: translate(0, -80px) scale(1.2); opacity: 0; }
+          100% { transform: translate(0, -90px) scale(1.3); opacity: 0; }
         }
       `}</style>
 
       {/* MATRIX BACKGROUND DATA STREAM */}
       {matrixActive && (
-        <div className="absolute inset-0 opacity-25 pointer-events-none font-mono text-[10px] text-emerald-400 overflow-hidden select-none">
-          {Array.from({ length: 14 }).map((_, i) => (
-            <div key={i} className="absolute animate-pulse" style={{ left: `${i * 7}%`, top: `${(i * 13) % 80}%` }}>
+        <div className="absolute inset-0 opacity-20 pointer-events-none font-mono text-[10px] text-emerald-400 overflow-hidden select-none">
+          {Array.from({ length: 16 }).map((_, i) => (
+            <div key={i} className="absolute animate-pulse" style={{ left: `${i * 6.5}%`, top: `${(i * 13) % 80}%` }}>
               01000101 01001101 01001111 00100000 01000001 01001001
             </div>
           ))}
         </div>
       )}
 
-      {/* TOP GLASSMORPHIC CONTROL BAR */}
-      <header className="absolute top-3 left-3 right-3 z-40 flex items-center justify-between">
-        {/* Left: Bio-Vitals Badge & Voice */}
-        <div className="flex items-center gap-2">
-          <div className="px-3.5 py-2 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-white/15 shadow-2xl flex items-center gap-2.5">
-            <span className={`w-2.5 h-2.5 rounded-full ${isListening ? "bg-red-500 animate-ping" : "bg-cyan-400 animate-pulse"}`} />
-            <span className="text-xs font-mono font-bold tracking-wider text-white">robot</span>
-            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-white/10 text-[11px] font-mono text-cyan-300">
-              <span>💖 {affection}%</span>
-              <span>⚡ {energy}%</span>
+      {/* --- ONLY SINGLE BUTTON ON SCREEN (OPENS ALL CONTROLS) --- */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40">
+  {/* Ambient background glow */}
+  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 blur-xl opacity-30 group-hover:opacity-75 transition-opacity duration-500 animate-pulse pointer-events-none" />
+
+  <button
+    onClick={() => setControlPanelOpen(true)}
+    className="group relative flex items-center gap-3 px-7 py-3 rounded-full bg-slate-950/80 hover:bg-slate-900/90 text-cyan-300 font-mono text-sm tracking-wider font-semibold backdrop-blur-xl border border-cyan-500/40 shadow-[0_0_30px_rgba(6,182,212,0.25)] hover:shadow-[0_0_45px_rgba(6,182,212,0.6)] hover:border-cyan-400/80 transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden"
+  >
+    {/* Diagonal shimmer sweep on hover */}
+    <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+
+    {/* Expanding radar ping animation */}
+    <span className="relative flex h-3 w-3">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+      <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
+    </span>
+
+    {/* Label */}
+    <span className="uppercase text-xs tracking-widest text-slate-200 group-hover:text-white transition-colors duration-200">
+      Interact
+    </span>
+
+    {/* Micro command shortcut hint */}
+    <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-cyan-400/80 bg-cyan-950/60 border border-cyan-500/30 rounded">
+      ⌘K
+    </span>
+  </button>
+</div>
+
+      {/* --- ALL-IN-ONE UNIFIED CONTROL PANEL MODAL --- */}
+      {controlPanelOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-slate-950/95 border border-cyan-500/30 p-5 sm:p-6 text-white shadow-2xl flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+            
+            {/* Header with Bio-Metrics & Close */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🤖</span>
+                <div>
+                  <h3 className="font-bold text-sm text-cyan-300 font-mono">EMO Control Core</h3>
+                  {/* <div className="flex gap-2 text-[10px] font-mono text-slate-400">
+                    <span>💖 Affection {affection}%</span>
+                    <span>⚡ Energy {energy}%</span>
+                  </div> */}
+                </div>
+              </div>
+              <button
+                onClick={() => setControlPanelOpen(false)}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs font-bold text-slate-300"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Top Priority Buttons: Talk & Commands */}
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider font-mono">Primary Commands</span>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() => {
+                    toggleListening();
+                    setControlPanelOpen(false);
+                  }}
+                  className={`py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm border shadow-lg transition-all active:scale-95 ${
+                    isListening
+                      ? "bg-rose-500 border-rose-400 text-white animate-bounce"
+                      : "bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/40 text-cyan-200"
+                  }`}
+                >
+                  <span className="text-lg">{isListening ? "🔴" : "🎙️"}</span>
+                  <span>{isListening ? "Listening..." : "Talk"}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setCommandsOpen(true);
+                    setControlPanelOpen(false);
+                  }}
+                  className="py-3.5 px-4 rounded-2xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95"
+                >
+                  <span className="text-lg">📜</span>
+                  <span>Commands</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Actions & Interactions */}
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Interactions & Toys</span>
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  onClick={() => {
+                    triggerTakePic();
+                    setControlPanelOpen(false);
+                  }}
+                  className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center gap-1 text-xs transition active:scale-95"
+                >
+                  <span className="text-xl">📸</span>
+                  <span className="text-[10px] text-slate-300">Photo</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    triggerEatFood();
+                    setControlPanelOpen(false);
+                  }}
+                  className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center gap-1 text-xs transition active:scale-95"
+                >
+                  <span className="text-xl">🍔</span>
+                  <span className="text-[10px] text-slate-300">Eat</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveToy((t) => (t === "ball" ? "hand" : "ball"));
+                    ballPhys.current.active = true;
+                    setControlPanelOpen(false);
+                  }}
+                  className={`p-3 rounded-2xl border flex flex-col items-center gap-1 text-xs transition active:scale-95 ${
+                    activeToy === "ball"
+                      ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300 font-bold"
+                      : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
+                  }`}
+                >
+                  <span className="text-xl">⚽</span>
+                  <span className="text-[10px]">Soccer</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    triggerShootSelf();
+                    setControlPanelOpen(false);
+                  }}
+                  className="p-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 flex flex-col items-center gap-1 text-xs text-rose-300 transition active:scale-95"
+                >
+                  <span className="text-xl">💥</span>
+                  <span className="text-[10px]">Shoot</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mt-1">
+                <button
+                  onClick={() => {
+                    handleVoiceCommand("dance");
+                    setControlPanelOpen(false);
+                  }}
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-1.5 text-xs text-slate-300 transition active:scale-95"
+                >
+                  <span>🕺</span>
+                  <span>Dance</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handleVoiceCommand("joke");
+                    setControlPanelOpen(false);
+                  }}
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-1.5 text-xs text-slate-300 transition active:scale-95"
+                >
+                  <span>😂</span>
+                  <span>Joke</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    triggerDizzy();
+                    setControlPanelOpen(false);
+                  }}
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-1.5 text-xs text-slate-300 transition active:scale-95"
+                >
+                  <span>🌀</span>
+                  <span>Dizzy</span>
+                </button>
+              </div>
+            </div>
+
+            {/* System Settings & Customization */}
+            <div className="flex flex-col gap-2.5 pt-2 border-t border-white/10">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Core Settings</span>
+              
+              {/* Color Themes */}
+              <div>
+                <span className="text-xs text-slate-300 mb-1.5 block">Eye & Mouth Core Color</span>
+                <div className="grid grid-cols-5 gap-2">
+                  {CHASSIS_THEMES.map((theme, i) => (
+                    <button
+                      key={theme.name}
+                      onClick={() => setThemeIdx(i)}
+                      className="h-8 rounded-xl border-2 transition-all hover:scale-105"
+                      style={{ background: theme.accent, borderColor: i === themeIdx ? "#ffffff" : "transparent" }}
+                      title={theme.name}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Toggles */}
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <button
+                  onClick={() => setMuted((m) => !m)}
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-xs text-slate-300 transition"
+                >
+                  <span>{muted ? "🔇" : "🔊"}</span>
+                  <span>{muted ? "Muted" : "Sound On"}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    gravityDir.current *= -1;
+                    sounds.jump();
+                    setControlPanelOpen(false);
+                  }}
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-xs text-slate-300 transition"
+                >
+                  <span>🛸</span>
+                  <span>Flip Gravity</span>
+                </button>
+              </div>
             </div>
           </div>
-
-          <button
-            onClick={toggleListening}
-            className={`px-4 py-2 rounded-2xl flex items-center gap-1.5 border shadow-xl transition-all ${
-              isListening
-                ? "bg-rose-500 border-rose-300 text-white font-bold animate-bounce"
-                : "bg-slate-900/70 hover:bg-slate-800/80 border-white/15 text-cyan-300 text-xs font-medium backdrop-blur-xl"
-            }`}
-          >
-            <span>{isListening ? "🔴 Listening" : "🎙️ Talk"}</span>
-          </button>
         </div>
+      )}
 
-        {/* Right: Actions Hub */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setCommandsOpen(true)}
-            className="px-3.5 py-2 rounded-2xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 text-xs font-semibold backdrop-blur-xl transition active:scale-95 flex items-center gap-1.5"
-          >
-            <span>📜</span>
-            <span className="hidden sm:inline">Commands</span>
-          </button>
-
-          <button
-            onClick={() => setMuted((m) => !m)}
-            className="p-2.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800/80 transition border border-white/15 text-white text-xs backdrop-blur-xl"
-          >
-            {muted ? "🔇" : "🔊"}
-          </button>
-
-          <div className="relative">
-            <button
-              onClick={() => setMenuOpen((o) => !o)}
-              className="p-2.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800/80 transition border border-white/15 text-white text-xs font-bold backdrop-blur-xl"
-            >
-              ⚙️
-            </button>
-
-            {menuOpen && (
-              <div className="absolute right-0 top-12 w-64 p-3 rounded-2xl bg-slate-900/95 backdrop-blur-2xl border border-white/20 shadow-2xl flex flex-col gap-3 text-white text-xs z-50">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chassis Hardware</span>
-                  <div className="grid grid-cols-5 gap-1.5 mt-1.5">
-                    {CHASSIS_THEMES.map((theme, i) => (
-                      <button
-                        key={theme.name}
-                        onClick={() => {
-                          setThemeIdx(i);
-                          setMenuOpen(false);
-                        }}
-                        className="w-8 h-8 rounded-full border-2 transition hover:scale-110"
-                        style={{ background: theme.accent, borderColor: i === themeIdx ? "#ffffff" : "transparent" }}
-                        title={theme.name}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-white/10 flex justify-between items-center">
-                  <span className="text-slate-300">Gravity Invert</span>
-                  <button
-                    onClick={() => {
-                      gravityDir.current *= -1;
-                      sounds.jump();
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 font-semibold"
-                  >
-                    🛸 Toggle
-                  </button>
-                </div>
+      {/* --- CAMERA & PHOTO CAPTURE OVERLAY --- */}
+      {cameraActive && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+          <div className="relative rounded-3xl overflow-hidden border border-cyan-400 max-w-md w-full aspect-video shadow-2xl">
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover -scale-x-100" />
+            {cameraCountdown && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-cyan-300 font-mono text-5xl font-black animate-pulse">
+                {cameraCountdown}
               </div>
             )}
           </div>
         </div>
-      </header>
+      )}
 
-      {/* REORGANIZED BOTTOM ACTION DOCK */}
-      <nav className="absolute bottom-3 left-3 right-3 z-40 flex items-center justify-center gap-2">
-        <div className="px-4 py-2 rounded-3xl bg-slate-950/85 backdrop-blur-2xl border border-white/15 shadow-2xl flex items-center gap-2 max-w-lg w-full justify-around text-xs">
-          {/* 1. Show Commands */}
-          <button
-            onClick={() => setCommandsOpen(true)}
-            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
-            title="View All Commands"
-          >
-            <span className="text-lg">📜</span>
-            <span className="text-[10px]">Commands</span>
-          </button>
-
-          {/* 2. Listen / Talk */}
-          <button
-            onClick={toggleListening}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-2xl transition ${
-              isListening
-                ? "bg-rose-500/30 text-rose-300 font-bold border border-rose-400/40 animate-pulse"
-                : "text-slate-300 hover:text-cyan-300 active:scale-95"
-            }`}
-            title="Listen / Talk"
-          >
-            <span className="text-lg">{isListening ? "🔴" : "🎙️"}</span>
-            <span className="text-[10px]">{isListening ? "Listening" : "Listen"}</span>
-          </button>
-
-          {/* 3. Divider Line */}
-          <div className="w-[1px] h-7 bg-white/20 mx-1" />
-
-          {/* 4. Soccer */}
-          <button
-            onClick={() => {
-              setActiveToy((t) => (t === "ball" ? "hand" : "ball"));
-              ballPhys.current.active = true;
-            }}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-2xl transition ${
-              activeToy === "ball"
-                ? "bg-emerald-500/30 text-emerald-300 font-bold border border-emerald-400/40"
-                : "text-slate-300 hover:text-cyan-300 active:scale-95"
-            }`}
-            title="Play Soccer"
-          >
-            <span className="text-lg">⚽</span>
-            <span className="text-[10px]">Soccer</span>
-          </button>
-
-          {/* 5. Dance */}
-          <button
-            onClick={() => handleVoiceCommand("dance")}
-            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
-            title="Dance Routine"
-          >
-            <span className="text-lg">🕺</span>
-            <span className="text-[10px]">Dance</span>
-          </button>
-
-          {/* 6. Joke */}
-          <button
-            onClick={() => handleVoiceCommand("joke")}
-            className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-cyan-300 active:scale-95 transition"
-            title="Tell Joke"
-          >
-            <span className="text-lg">😂</span>
-            <span className="text-[10px]">Joke</span>
-          </button>
+      {/* POLAROID PHOTO VIEWER */}
+      {snapshotPhoto && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 p-4 rounded-3xl bg-white text-slate-900 shadow-2xl border-4 border-cyan-400 flex flex-col items-center gap-2 max-w-xs animate-bounce">
+          <img src={snapshotPhoto} alt="Snapshot" className="w-full rounded-2xl border border-slate-300 -scale-x-100" />
+          <div className="flex items-center justify-between w-full px-1">
+            <span className="text-xs font-mono font-bold text-slate-800">📸 EMO_MEMORY.PNG</span>
+            <button
+              onClick={() => setSnapshotPhoto(null)}
+              className="px-3 py-1 rounded-xl bg-slate-900 text-white font-bold text-xs"
+            >
+              ✕ Close
+            </button>
+          </div>
         </div>
-      </nav>
+      )}
 
-      {/* LIVE INTERACTIVE TRIVIA POPUP */}
+      {/* --- FOOD DROP ANIMATION --- */}
+      {foodDrop && (
+        <div
+          className="absolute z-30 text-5xl pointer-events-none transition-all duration-700 ease-in"
+          style={{
+            left: foodDrop.x,
+            top: foodDrop.y,
+            transform: `translate3d(0, ${phys.current.y - foodDrop.y + 10}px, 0) scale(${mood === "eating" ? 0.2 : 1})`,
+            opacity: mood === "eating" ? 0 : 1,
+          }}
+        >
+          {foodDrop.item.icon}
+        </div>
+      )}
+
+      {/* --- SHOOT SELF TARGETING CROSSHAIR --- */}
+      {isShootingSelf && (
+        <div
+          className="absolute pointer-events-none z-30 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
+          style={{ left: crosshairPos.x, top: crosshairPos.y }}
+        >
+          <div className="w-28 h-28 rounded-full border-2 border-red-500 animate-spin border-dashed" />
+          <div className="w-36 h-36 rounded-full border border-red-500/60 animate-ping absolute" />
+          <div className="w-4 h-4 bg-red-500 rounded-full shadow-[0_0_25px_#ef4444]" />
+        </div>
+      )}
+
+      {/* TRIVIA POPUP */}
       {liveQuiz && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2.5 p-4 rounded-3xl bg-slate-900/95 border border-cyan-400 backdrop-blur-xl shadow-2xl max-w-sm w-[90%]">
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2.5 p-4 rounded-3xl bg-black/90 border border-cyan-400 backdrop-blur-xl shadow-2xl max-w-sm w-[90%]">
           <span className="text-xs font-bold text-cyan-300 uppercase font-mono tracking-wider">OpenTDB Live Trivia</span>
           <p className="text-xs text-white text-center font-medium">{liveQuiz.question}</p>
           <div className="grid grid-cols-1 gap-1.5 w-full">
@@ -1652,7 +2112,7 @@ export default function EmoCompanion() {
                   } else {
                     sounds.gasp();
                     setMood("scared");
-                    setMsg(`Wrong! Correct answer was: ${liveQuiz.correct} ❌`);
+                    setMsg(`Wrong! Correct was: ${liveQuiz.correct} ❌`);
                     speakText(`Incorrect! The correct answer was ${liveQuiz.correct}`);
                   }
                   setLiveQuiz(null);
@@ -1668,7 +2128,7 @@ export default function EmoCompanion() {
 
       {/* POKEMON CARD DISPLAY */}
       {pokemonCard && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 p-3.5 rounded-3xl bg-slate-900/95 border border-amber-400 backdrop-blur-xl shadow-2xl animate-bounce">
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 p-3.5 rounded-3xl bg-black/90 border border-amber-400 backdrop-blur-xl shadow-2xl animate-bounce">
           <img src={pokemonCard.sprite} alt={pokemonCard.name} className="w-16 h-16 pixelated bg-white/10 rounded-2xl border border-white/15" />
           <div className="flex flex-col text-xs text-white">
             <span className="font-bold text-amber-300 font-mono">{pokemonCard.name}</span>
@@ -1680,7 +2140,7 @@ export default function EmoCompanion() {
 
       {/* SIMON SAYS MEMORY CHALLENGE */}
       {simonGame && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2 p-3.5 rounded-3xl bg-slate-900/90 border border-cyan-400 backdrop-blur-xl shadow-2xl">
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2 p-3.5 rounded-3xl bg-black/90 border border-cyan-400 backdrop-blur-xl shadow-2xl">
           <span className="text-xs font-bold text-cyan-300 uppercase font-mono">Memory Matrix Sequence</span>
           <div className="flex gap-2.5">
             {["🔵", "🟢", "🟡", "🔴"].map((color) => (
@@ -1714,10 +2174,10 @@ export default function EmoCompanion() {
         </div>
       )}
 
-      {/* ALL COMMANDS MODAL */}
+      {/* COMMANDS MODAL */}
       {commandsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md">
-          <div className="w-full max-w-lg rounded-3xl bg-slate-900 border border-cyan-500/40 p-5 sm:p-6 text-white shadow-2xl flex flex-col max-h-[85vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-lg rounded-3xl bg-slate-950 border border-cyan-500/40 p-5 sm:p-6 text-white shadow-2xl flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <span className="text-xl">🤖</span>
@@ -1774,7 +2234,7 @@ export default function EmoCompanion() {
         </div>
       )}
 
-      {/* BIG DIGITAL TIME DISPLAY */}
+      {/* DIGITAL TIME DISPLAY */}
       {clockDisplay && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 animate-pulse text-center">
           <div className="px-7 py-3 rounded-3xl bg-black/85 border-2 border-cyan-400 text-cyan-300 font-mono text-3xl sm:text-4xl font-extrabold tracking-widest shadow-[0_0_30px_rgba(56,189,248,0.6)]">
@@ -1786,14 +2246,14 @@ export default function EmoCompanion() {
       {/* SPEECH BUBBLE */}
       {mood !== "exploded" && msg && (
         <div
-          className="absolute z-30 transition-all duration-150 pointer-events-none whitespace-normal text-center max-w-[220px]"
+          className="absolute z-30 transition-all duration-150 pointer-events-none whitespace-normal text-center max-w-[240px]"
           style={{
             left: 0,
             top: 0,
-            transform: `translate3d(${phys.current.x - 110}px, ${phys.current.y - robotSize.h / 2 - 50}px, 0)`,
+            transform: `translate3d(${phys.current.x - 120}px, ${phys.current.y - robotSize.h / 2 - 50}px, 0)`,
           }}
         >
-          <div className="px-4 py-2 rounded-2xl bg-slate-950/90 border border-cyan-500/50 backdrop-blur-md text-cyan-200 text-xs font-semibold shadow-2xl">
+          <div className="px-4 py-2 rounded-2xl bg-black/85 border border-cyan-500/40 backdrop-blur-md text-cyan-200 text-xs font-semibold shadow-2xl">
             {msg}
           </div>
         </div>
@@ -1804,9 +2264,9 @@ export default function EmoCompanion() {
         <div
           className="absolute z-20 rounded-full overflow-hidden bg-white/10 border border-white/20"
           style={{
-            width: 90,
+            width: 100,
             height: 6,
-            transform: `translate3d(${phys.current.x - 45}px, ${phys.current.y - robotSize.h / 2 - 64}px, 0)`,
+            transform: `translate3d(${phys.current.x - 50}px, ${phys.current.y - robotSize.h / 2 - 64}px, 0)`,
           }}
         >
           <div
@@ -1844,7 +2304,7 @@ export default function EmoCompanion() {
       {hearts.map((h) => (
         <div
           key={h.id}
-          className="absolute z-30 pointer-events-none text-xl"
+          className="absolute z-30 pointer-events-none text-2xl"
           style={{
             transform: `translate3d(${h.x}px, ${h.y}px, 0)`,
             animation: `emoHeart 1.1s ease-out ${h.delay}s forwards`,
@@ -1873,8 +2333,8 @@ export default function EmoCompanion() {
           className="absolute z-20 cursor-grab active:cursor-grabbing touch-none"
           style={{ width: BALL_RADIUS * 2, height: BALL_RADIUS * 2, left: 0, top: 0 }}
         >
-          <div className="w-full h-full rounded-full bg-gradient-to-tr from-slate-200 to-white shadow-xl flex items-center justify-center border border-slate-400">
-            <span className="text-xs">⚽</span>
+          <div className="w-full h-full rounded-full bg-gradient-to-tr from-slate-200 to-white shadow-xl flex items-center justify-center border border-slate-400 text-base">
+            ⚽
           </div>
         </div>
       )}
@@ -1889,14 +2349,14 @@ export default function EmoCompanion() {
         </div>
       )}
 
-      {/* --- THE ENLARGED EMO ROBOT CHASSIS --- */}
+      {/* --- PURE BEZEL-LESS DIGITAL ROBOT FACE (EYES + MOUTH INSIDE SCREEN) --- */}
       {mood !== "exploded" && (
         <div
           ref={robotRef}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          className="absolute z-10 cursor-pointer active:cursor-grabbing touch-none"
+          className="absolute z-10 cursor-pointer active:cursor-grabbing touch-none flex flex-col items-center justify-center"
           style={{
             width: robotSize.w,
             height: robotSize.h,
@@ -1904,78 +2364,28 @@ export default function EmoCompanion() {
             top: 0,
           }}
         >
-          {/* Headphones Earcups with RGB Equalizer Rings */}
+          {/* Inner Screen Depth Glow behind face */}
           <div
-            className="absolute -left-4 top-8 w-8 h-20 rounded-3xl border-2 flex items-center justify-center shadow-2xl transition-all"
-            style={{
-              background: currentTheme.body,
-              borderColor: currentTheme.border,
-              boxShadow: discoActive ? `0 0 24px ${currentTheme.accent}` : `0 0 12px ${currentTheme.glow}`,
-            }}
-          >
-            <div className="w-2.5 h-8 rounded-full" style={{ background: currentTheme.accent }} />
-          </div>
-
-          <div
-            className="absolute -right-4 top-8 w-8 h-20 rounded-3xl border-2 flex items-center justify-center shadow-2xl transition-all"
-            style={{
-              background: currentTheme.body,
-              borderColor: currentTheme.border,
-              boxShadow: discoActive ? `0 0 24px ${currentTheme.accent}` : `0 0 12px ${currentTheme.glow}`,
-            }}
-          >
-            <div className="w-2.5 h-8 rounded-full" style={{ background: currentTheme.accent }} />
-          </div>
-
-          {/* Top Headband & Antenna LED */}
-          <div
-            className="absolute left-4 right-4 -top-3 h-8 border-t-4 border-l-4 border-r-4 rounded-t-3xl"
-            style={{ borderColor: currentTheme.border }}
+            className="absolute inset-0 rounded-full blur-3xl opacity-20 pointer-events-none"
+            style={{ background: currentTheme.eyeGlow }}
           />
 
-          {/* Main Chassis Body */}
-          <div
-            className="w-full h-full rounded-3xl relative p-3 flex flex-col items-center justify-center shadow-2xl border-2 overflow-hidden"
-            style={{
-              background: currentTheme.body,
-              borderColor: currentTheme.border,
-              boxShadow: `0 20px 45px rgba(0,0,0,0.65), inset 0 2px 4px rgba(255,255,255,0.2), 0 0 18px ${currentTheme.glow}`,
-            }}
-          >
-            {/* OLED Glass Screen Bezel */}
-            <div className="w-full h-28 rounded-2xl bg-black/95 border border-white/10 p-2 flex flex-col items-center justify-between relative shadow-inner">
-              <div className="w-full flex justify-between px-1.5 text-[8px] font-mono text-cyan-400/80">
-                <span>● Mahad</span>
-                <span>⚡ {energy}%</span>
-              </div>
+          {/* OLED Cyber Eyes looking from behind screen glass */}
+          <div className="flex items-center gap-9 relative">
+            <EmoEye side="left" mood={mood} blink={blink} eyeColor={currentTheme.eyeGlow} lookOffset={lookOffset} />
+            <EmoEye side="right" mood={mood} blink={blink} eyeColor={currentTheme.eyeGlow} lookOffset={lookOffset} />
 
-              {/* Expressive OLED Digital Eyes & Blush Cheeks */}
-              <div className="flex items-center gap-6 my-auto relative">
-                <EmoEye side="left" mood={mood} blink={blink} eyeColor={currentTheme.eyeGlow} />
-                <EmoEye side="right" mood={mood} blink={blink} eyeColor={currentTheme.eyeGlow} />
-
-                {(mood === "happy" || affection > 90) && (
-                  <>
-                    <div className="absolute -left-3 top-5 w-4 h-2.5 rounded-full bg-pink-500/60 blur-[1px]" />
-                    <div className="absolute -right-3 top-5 w-4 h-2.5 rounded-full bg-pink-500/60 blur-[1px]" />
-                  </>
-                )}
-              </div>
-
-              {/* Equalizer Waveform */}
-              <div className="w-16 h-1.5 flex items-center justify-center gap-1">
-                <div className="w-1.5 h-full bg-cyan-400/60 rounded-full animate-bounce" />
-                <div className="w-1.5 h-full bg-cyan-400/80 rounded-full animate-pulse" />
-                <div className="w-1.5 h-full bg-cyan-400/60 rounded-full animate-bounce" />
-              </div>
-            </div>
-
-            {/* Motorized Robot Dual Foot Pads */}
-            <div className="w-full flex justify-between px-6 -mb-1.5 mt-1.5">
-              <div className="w-7 h-3 rounded-b-xl bg-slate-950 border border-slate-700" />
-              <div className="w-7 h-3 rounded-b-xl bg-slate-950 border border-slate-700" />
-            </div>
+            {/* Blush cheeks */}
+            {(mood === "happy" || mood === "eating" || affection > 90) && (
+              <>
+                <div className="absolute -left-4 top-10 w-6 h-3 rounded-full bg-pink-500/60 blur-[2px]" />
+                <div className="absolute -right-4 top-10 w-6 h-3 rounded-full bg-pink-500/60 blur-[2px]" />
+              </>
+            )}
           </div>
+
+          {/* Expressive OLED Digital Mouth */}
+          <EmoMouth mood={mood} eyeColor={currentTheme.eyeGlow} isTalking={isTalking} />
         </div>
       )}
     </div>
