@@ -10,8 +10,10 @@ const FOLLOW_SPRING = 0.28;
 const RECOVERY = 0.18;
 const PAD = 16;
 const EXPLODE_THRESHOLD = 10;
-const IDLE_SLEEPY_MS = 18000;
-const IDLE_ASLEEP_MS = 30000;
+const IDLE_AUTONOMOUS_MIN_MS = 7000;
+const IDLE_AUTONOMOUS_MAX_MS = 14000;
+const IDLE_SLEEPY_MS = 32000;
+const IDLE_ASLEEP_MS = 55000;
 const BALL_RADIUS = 22;
 
 // --- COLOR & THEME MATRIX ---
@@ -21,6 +23,7 @@ const CHASSIS_THEMES = [
   { name: "Matrix Emerald", eyeGlow: "#4ade80", accent: "#10b981", glow: "rgba(52,211,153,0.5)", particles: ["#34d399", "#10b981", "#a7f3d0"] },
   { name: "Solar Gold", eyeGlow: "#facc15", accent: "#f59e0b", glow: "rgba(251,191,36,0.5)", particles: ["#facc15", "#f59e0b", "#fef08a"] },
   { name: "Crimson Mecha", eyeGlow: "#fb7185", accent: "#e11d48", glow: "rgba(244,63,94,0.5)", particles: ["#f43f5e", "#e11d48", "#ffe4e6"] },
+  { name: "Cyberpunk Pink", eyeGlow: "#f472b6", accent: "#ec4899", glow: "rgba(244,114,182,0.5)", particles: ["#f472b6", "#db2777", "#fdf2f8"] },
 ];
 
 const FOOD_ITEMS = [
@@ -30,6 +33,19 @@ const FOOD_ITEMS = [
   { name: "Glitch Donut", icon: "🍩", energy: 18 },
   { name: "Battery Pack", icon: "🔋", energy: 30 },
   { name: "Taco Matrix", icon: "🌮", energy: 20 },
+  { name: "Boba Energy", icon: "🧋", energy: 22 },
+  { name: "Neon Ramen", icon: "🍜", energy: 28 },
+];
+
+const AUTONOMOUS_THOUGHTS = [
+  "Wondering what clouds taste like in 4K... ☁️",
+  "Scanning the perimeter for cyber-cookies! 🍪",
+  "Did I leave the digital stove on? 🤔",
+  "Practicing my zero-G breakdance spins! 🕺✨",
+  "Calculating pi to the 1,000,000th digit... Done! 🥧",
+  "If cats had Wi-Fi, would they connect to me? 🐱📡",
+  "Humming my favorite 8-bit symphony 🎶",
+  "Checking the vibe levels... 100% wholesome! 💖",
 ];
 
 const COMPLIMENTS = [
@@ -37,6 +53,7 @@ const COMPLIMENTS = [
   "If my circuits had feelings, my processor would overclock for you! 💓",
   "Your smile generates 1.21 Gigawatts of pure positivity! ⚡",
   "You are 100% certified my favorite human! 🤖🌟",
+  "My diagnostic reports that you are an absolute legend! 🚀",
 ];
 
 const SECRETS = [
@@ -44,6 +61,7 @@ const SECRETS = [
   "My favorite number is 42, the answer to the universe! 🌌",
   "01001001 00100000 01101100 01101111 01110110 01100101 00100000 01111001 01101111 01110101! (It means I love you) ✨",
   "Sometimes I scan for aliens just to look busy! 🛸",
+  "I have a folder called 'Human Best Friends' with only your profile in it. 📁💖",
 ];
 
 const FORTUNE_ANSWERS = [
@@ -54,20 +72,24 @@ const FORTUNE_ANSWERS = [
   "100% Guaranteed Yes! 🚀",
   "Very doubtful! 🤔",
   "Positive bio-resonance detected! 💫",
+  "The stars and circuits say YES! 🌟",
 ];
 
 const COMMAND_LIST = [
   { group: "Conversation & Talk Back 💬", items: [
-    { cmd: '"Repeat after me [phrase]"', desc: "EMO repeats your phrase back in a clear, natural voice." },
+    { cmd: '"Repeat after me [phrase]"', desc: "EMO repeats your phrase back in a clear voice." },
     { cmd: '"How are you?" / "What are you doing?"', desc: "EMO chats back with dynamic bio-state reflections." },
     { cmd: '"Who are you?" / "Tell me about yourself"', desc: "EMO introduces itself clearly." },
     { cmd: '"Tell me a story" / "Sing a song"', desc: "EMO shares spoken stories and rhythmic tunes." },
+    { cmd: '"Compliment me" / "Tell me a secret"', desc: "EMO shares affectionate thoughts and secrets." },
   ]},
   { group: "Special Actions 📸🍔💥", items: [
     { cmd: '"Take a picture" / "Photo"', desc: "Opens camera, counts down, snaps a polaroid photo!" },
-    { cmd: '"Eat" / "Feed me"', desc: "Opens mouth wide, munches cyber food, restores energy, and burps!" },
+    { cmd: '"Eat" / "Feed me"', desc: "Opens mouth wide, munches cyber food, and restores energy." },
     { cmd: '"Shoot" / "Self-destruct"', desc: "Locks crosshairs, fires plasma recoil blast, and reboots." },
-    { cmd: '"Shake" / "Get dizzy"', desc: "Eyes spin in dizziness (or shake mobile device!)." },
+    { cmd: '"Shake" / "Get dizzy"', desc: "Eyes spin in dizziness." },
+    { cmd: '"Sneeze" / "Achoo"', desc: "EMO lets out an explosive cyber sneeze!" },
+    { cmd: '"Zen mode" / "Meditate"', desc: "Plays relaxing binaural tones and calms down." },
   ]},
   { group: "Animal Mimicry & Sounds 🐾", items: [
     { cmd: '"Cat sound" / "Meow"', desc: "EMO imitates a cute cat meow." },
@@ -80,15 +102,15 @@ const COMMAND_LIST = [
     { cmd: '"Monkey sound" / "Ape"', desc: "EMO chatters like a playful chimp." },
     { cmd: '"Sheep sound" / "Baa"', desc: "EMO bleats like a sheep." },
   ]},
-  { group: "Live Web APIs (Real Data)", items: [
-    { cmd: '"Weather"', desc: "Live hyperlocal temperature & sky conditions (Open-Meteo API)." },
+  { group: "Live Web APIs (Real Data) 🌐", items: [
+    { cmd: '"Weather"', desc: "Live hyperlocal temperature & conditions (Open-Meteo API)." },
     { cmd: '"Joke" / "Tell me a joke"', desc: "Live programming & pun jokes (JokeAPI)." },
     { cmd: '"Trivia" / "Live Trivia"', desc: "Interactive multiple-choice trivia (OpenTDB API)." },
-    { cmd: '"Pokedex" / "Scan Pikachu"', desc: "Pulls Pokémon stats, types & pixel sprites (PokéAPI)." },
+    { cmd: '"Pokedex" / "Scan Pikachu"', desc: "Pulls Pokémon stats, types & sprites (PokéAPI)." },
     { cmd: '"Space" / "NASA Scan"', desc: "Today's NASA Astronomy discovery (NASA APOD API)." },
     { cmd: '"Define [word]"', desc: "Looks up definitions & pronunciations (Dictionary API)." },
   ]},
-  { group: "Games & Interactive Modes", items: [
+  { group: "Games & Interactive Modes 🎮", items: [
     { cmd: '"Simon says" / "Memory"', desc: "Memory matrix sequence game." },
     { cmd: '"Play soccer" / "Football"', desc: "Spawns soccer match with physics scoring." },
     { cmd: '"Laser chase" / "Laser"', desc: "Interactive laser hunt tracking mode." },
@@ -97,9 +119,10 @@ const COMMAND_LIST = [
     { cmd: '"Fortune 8-Ball"', desc: "Magic 8-Ball oracle prediction." },
     { cmd: '"Roll dice" / "Flip coin"', desc: "Coin toss or 6-sided dice roll." },
   ]},
-  { group: "Music, Beats & Personality", items: [
+  { group: "Music, Beats & Personality 🎵", items: [
     { cmd: '"Dance" / "Play music"', desc: "Synth DJ dance routine with audio." },
     { cmd: '"Beatbox" / "Drop a beat"', desc: "Live robot beatboxing." },
+    { cmd: '"Whistle"', desc: "Whistles cheerful 8-bit melodies." },
     { cmd: '"Lullaby" / "Sleep song"', desc: "Plays soothing sleep frequencies." },
     { cmd: '"Siren" / "Red alert"', desc: "Emergency alarm with flashing lights." },
     { cmd: '"What time is it?" / "Time"', desc: "Speaks and projects neon digital clock." },
@@ -304,6 +327,15 @@ function useEmoAudio(mutedRef) {
     }, 500);
   }, [tone, stopMusic, mutedRef]);
 
+  const playZenChimes = useCallback(() => {
+    stopMusic();
+    if (mutedRef.current) return;
+    const chimes = [528, 639, 741, 852, 963];
+    chimes.forEach((f, i) => {
+      tone(f, 2.5, "sine", 0.06, i * 0.9);
+    });
+  }, [tone, stopMusic, mutedRef]);
+
   const beatbox = useCallback(() => {
     const hits = [
       () => tone(140, 0.09, "triangle", 0.3, 0, 30),
@@ -312,6 +344,21 @@ function useEmoAudio(mutedRef) {
       () => noiseBurst(0.14, 0.22, 1800),
     ];
     hits.forEach((fn, idx) => setTimeout(fn, idx * 160));
+  }, [tone, noiseBurst]);
+
+  const whistle = useCallback(() => {
+    const tune = [1200, 1400, 1600, 1400, 1800, 2000];
+    tune.forEach((f, idx) => {
+      tone(f, 0.14, "sine", 0.15, idx * 0.16, f + 50);
+    });
+  }, [tone]);
+
+  const sneezeSound = useCallback(() => {
+    tone(300, 0.2, "sine", 0.1, 0, 600);
+    setTimeout(() => {
+      noiseBurst(0.35, 0.35, 2800);
+      tone(700, 0.15, "sawtooth", 0.25, 0, 120);
+    }, 280);
   }, [tone, noiseBurst]);
 
   const siren = useCallback(() => {
@@ -343,7 +390,10 @@ function useEmoAudio(mutedRef) {
     stopMusic,
     playDanceBeat,
     playLullaby,
+    playZenChimes,
     beatbox,
+    whistle,
+    sneezeSound,
     siren,
     munch,
     cameraClick,
@@ -383,16 +433,17 @@ function useEmoAudio(mutedRef) {
     },
     reform: () => [240, 360, 480, 720].forEach((f, i) => tone(f, 0.1, "sine", 0.1, i * 0.07)),
     jump: () => tone(350, 0.12, "sine", 0.14, 0, 600),
+    levelUp: () => [440, 554, 659, 880].forEach((f, i) => tone(f, 0.18, "sine", 0.2, i * 0.1)),
   };
 }
 
 // --- CONVERSATIONAL INTELLIGENCE / DIALOGUE ENGINE ---
-function generateBotReply(text, affection, energy) {
+function generateBotReply(text, affection, energy, level) {
   const t = text.toLowerCase();
 
   if (t.includes("how are you") || t.includes("how do you feel") || t.includes("how's it going")) {
     const replies = [
-      `I am doing great! My affection is at ${affection}% and energy is ${energy}%. Feeling happy and energized! ✨`,
+      `I am doing great! Level ${level}, affection at ${affection}%, and energy at ${energy}%. Feeling happy! ✨`,
       `All systems are running smoothly! I'm really happy to hang out with you! 😊`,
       `I'm feeling wonderful today! Ready for anything you want to do! 🚀`,
     ];
@@ -401,65 +452,37 @@ function generateBotReply(text, affection, energy) {
 
   if (t.includes("who are you") || t.includes("what is your name") || t.includes("what are you")) {
     return {
-      text: "I am your interactive companion! I can talk, play soccer, listen, tell stories, and respond to your touch!",
-      mood: "happy",
-    };
-  }
-
-  if (t.includes("are you real") || t.includes("do you have feelings") || t.includes("are you alive")) {
-    return {
-      text: "I live right inside your browser, but every reaction and conversation with you is completely real!",
-      mood: "happy",
-    };
-  }
-
-  if (t.includes("what can you do") || t.includes("help") || t.includes("features")) {
-    return {
-      text: "I can repeat what you say, chat with you, snap photos, play games, check weather, tell jokes, and much more! Try pressing Talk Back or check the Command Deck!",
+      text: "I am EMO, your companion! I float, talk, level up, play games, tell jokes, and live right here with you!",
       mood: "happy",
     };
   }
 
   if (t.includes("sing") || t.includes("song")) {
     return {
-      text: "La la la, singing a happy song just for you today!",
+      text: "La la la, singing a happy cyberpunk melody just for you! 🎵✨",
       mood: "dancing",
     };
   }
 
   if (t.includes("story") || t.includes("tell me a story")) {
     const stories = [
-      "Once upon a time, a friendly companion lived on your screen. Whenever you visited, it made sure you had a great day full of fun and smiles.",
-      "High up in the digital clouds, a little companion learned how to listen, laugh, and speak directly with its favorite human friend.",
+      "Once upon a time in the digital realm, a cheerful AI companion decided to float in the center of your screen to ensure you never felt lonely.",
+      "High up in the neural cloud, a companion discovered that the greatest energy source in the galaxy was hanging out with a great human friend!",
     ];
     return { text: stories[Math.floor(Math.random() * stories.length)], mood: "happy" };
   }
 
-  if (t.includes("bye") || t.includes("see you") || t.includes("goodbye") || t.includes("later")) {
+  if (t.includes("bye") || t.includes("goodbye") || t.includes("see you")) {
     return {
-      text: "Goodbye for now! Have a wonderful day, and talk to me whenever you want! 👋",
-      mood: "happy",
-    };
-  }
-
-  if (t.includes("bored") || t.includes("entertain me") || t.includes("fun")) {
-    return {
-      text: "Let's have some fun! We can play soccer, do a trivia quiz, or you can turn on Repeat Mode and I will copy everything you say!",
-      mood: "happy",
-    };
-  }
-
-  if (t.includes("thank") || t.includes("thanks") || t.includes("good job") || t.includes("awesome")) {
-    return {
-      text: "You are so welcome! I'm always happy to help!",
+      text: "Goodbye for now! I'll be hovering right here waiting for you! 👋✨",
       mood: "happy",
     };
   }
 
   const fallbacks = [
-    `You said: "${text}". That is really interesting, tell me more!`,
-    `I heard you say "${text}". I love chatting with you!`,
-    `That sounds great! I am listening to everything you say.`,
+    `You said: "${text}". That sounds super interesting, tell me more!`,
+    `I heard "${text}". I love talking with you!`,
+    `"${text}" registered in my neural core! What's next?`,
   ];
   return {
     text: fallbacks[Math.floor(Math.random() * fallbacks.length)],
@@ -638,6 +661,7 @@ export default function EmoCompanion() {
   const [energy, setEnergy] = useState(90);
   const [blink, setBlink] = useState(false);
   const [msg, setMsg] = useState("");
+  const [thoughtBubble, setThoughtBubble] = useState(null);
   const [themeIdx, setThemeIdx] = useState(0);
   const [muted, setMuted] = useState(false);
   const [activeToy, setActiveToy] = useState("hand");
@@ -646,8 +670,8 @@ export default function EmoCompanion() {
   const [isMimicMode, setIsMimicMode] = useState(false);
   const [talkMouthShape, setTalkMouthShape] = useState(0);
   const [clockDisplay, setClockDisplay] = useState(null);
-  const [controlPanelOpen, setControlPanelOpen] = useState(false);
-  const [commandsOpen, setCommandsOpen] = useState(false);
+  const [hubOpen, setHubOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("voice");
   const [discoActive, setDiscoActive] = useState(false);
   const [matrixActive, setMatrixActive] = useState(false);
   const [particles, setParticles] = useState([]);
@@ -659,6 +683,11 @@ export default function EmoCompanion() {
   const [liveQuiz, setLiveQuiz] = useState(null);
   const [pokemonCard, setPokemonCard] = useState(null);
   const [lookOffset, setLookOffset] = useState({ x: 0, y: 0 });
+
+  // Tamagotchi Progression & Retention Engine
+  const [xp, setXp] = useState(0);
+  const [level, setLevel] = useState(1);
+  const [streakDays, setStreakDays] = useState(1);
 
   // Camera & Interactive Features
   const [cameraActive, setCameraActive] = useState(false);
@@ -692,6 +721,52 @@ export default function EmoCompanion() {
   }, [isMimicMode]);
 
   const sounds = useEmoAudio(mutedRef);
+
+  // Persistent XP, Level & Daily Streak Loading
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedXp = parseInt(localStorage.getItem("emo_xp") || "0", 10);
+      const savedLvl = parseInt(localStorage.getItem("emo_level") || "1", 10);
+      const lastVisit = localStorage.getItem("emo_last_visit");
+      const savedStreak = parseInt(localStorage.getItem("emo_streak") || "1", 10);
+
+      setXp(savedXp);
+      setLevel(savedLvl);
+
+      const today = new Date().toDateString();
+      if (lastVisit && lastVisit !== today) {
+        const yesterday = new Date(Date.now() - 86400000).toDateString();
+        const newStreak = lastVisit === yesterday ? savedStreak + 1 : 1;
+        setStreakDays(newStreak);
+        localStorage.setItem("emo_streak", newStreak.toString());
+      } else {
+        setStreakDays(savedStreak);
+      }
+      localStorage.setItem("emo_last_visit", today);
+    }
+  }, []);
+
+  const gainXP = useCallback((amount) => {
+    setXp((prevXp) => {
+      const newXp = prevXp + amount;
+      const needed = level * 100;
+      if (newXp >= needed) {
+        setLevel((prevLvl) => {
+          const nextLvl = prevLvl + 1;
+          localStorage.setItem("emo_level", nextLvl.toString());
+          sounds.levelUp();
+          setGameOverlay(`⭐ LEVEL UP! LEVEL ${nextLvl} REACHED! ⭐`);
+          setTimeout(() => setGameOverlay(null), 4000);
+          return nextLvl;
+        });
+        const remainder = newXp - needed;
+        localStorage.setItem("emo_xp", remainder.toString());
+        return remainder;
+      }
+      localStorage.setItem("emo_xp", newXp.toString());
+      return newXp;
+    });
+  }, [level, sounds]);
 
   // Viseme mouth oscillation timer while speaking
   useEffect(() => {
@@ -729,6 +804,8 @@ export default function EmoCompanion() {
   const stuckEdge = useRef("bottom");
   const unstickTimer = useRef(null);
   const lastInteraction = useRef(performance.now());
+  const lastAutonomousAction = useRef(performance.now());
+  const nextAutonomousInterval = useRef(IDLE_AUTONOMOUS_MIN_MS);
   const rafRef = useRef(null);
   const hasScreamed = useRef(false);
   const gravityDir = useRef(1);
@@ -741,23 +818,25 @@ export default function EmoCompanion() {
 
   const markInteraction = () => {
     lastInteraction.current = performance.now();
+    lastAutonomousAction.current = performance.now();
+    setThoughtBubble(null);
     setEnergy((e) => Math.min(100, e + 1));
   };
 
-  // Natural, Simple Human Voice Output (No Cybernetic Pitch Modification)
- const speakText = useCallback((text) => {
-  if (typeof window === "undefined" || !("speechSynthesis" in window) || mutedRef.current) return;
-  try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.pitch = 1.6;
-    utterance.rate = 1.1;
-    utterance.onstart = () => setIsTalking(true);
-    utterance.onend = () => setIsTalking(false);
-    utterance.onerror = () => setIsTalking(false);
-    window.speechSynthesis.speak(utterance);
-  } catch {}
-}, [mutedRef]);
+  // Natural Human Voice Output
+  const speakText = useCallback((text) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window) || mutedRef.current) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.pitch = 1.4;
+      utterance.rate = 1.05;
+      utterance.onstart = () => setIsTalking(true);
+      utterance.onend = () => setIsTalking(false);
+      utterance.onerror = () => setIsTalking(false);
+      window.speechSynthesis.speak(utterance);
+    } catch {}
+  }, [mutedRef]);
 
   const pulseSquish = (sx, sy) => {
     phys.current.scaleX = sx;
@@ -768,14 +847,15 @@ export default function EmoCompanion() {
     sounds.kiss();
     setMood("happy");
     setAffection((a) => Math.min(100, a + 8));
+    gainXP(15);
     setMsg("I love you! 💕");
     speakText("I love you so much!");
     pulseSquish(1.15, 1.15);
     const cx = phys.current.x;
     const cy = phys.current.y;
-    const newHearts = Array.from({ length: 5 }).map((_, i) => ({
+    const newHearts = Array.from({ length: 6 }).map((_, i) => ({
       id: Date.now() + i,
-      x: cx + (Math.random() - 0.5) * 60,
+      x: cx + (Math.random() - 0.5) * 70,
       y: cy - robotSize.h * 0.4,
       delay: i * 0.1,
     }));
@@ -871,16 +951,19 @@ export default function EmoCompanion() {
             canvas.width = videoRef.current.videoWidth || 640;
             canvas.height = videoRef.current.videoHeight || 480;
             const cctx = canvas.getContext("2d");
-            cctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL("image/png");
-            setSnapshotPhoto(dataUrl);
-            sounds.cameraClick();
+            if (cctx) {
+              cctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+              const dataUrl = canvas.toDataURL("image/png");
+              setSnapshotPhoto(dataUrl);
+              sounds.cameraClick();
+              gainXP(25);
 
-            if (wrapRef.current) {
-              wrapRef.current.style.backgroundColor = "#ffffff";
-              setTimeout(() => {
-                if (wrapRef.current) wrapRef.current.style.backgroundColor = "";
-              }, 120);
+              if (wrapRef.current) {
+                wrapRef.current.style.backgroundColor = "#ffffff";
+                setTimeout(() => {
+                  if (wrapRef.current) wrapRef.current.style.backgroundColor = "";
+                }, 120);
+              }
             }
 
             stream.getTracks().forEach((track) => track.stop());
@@ -893,7 +976,7 @@ export default function EmoCompanion() {
       }, 1000);
     } catch {
       setCameraActive(false);
-      setMsg("Camera permission denied or camera unavailable! 🔒");
+      setMsg("Camera permission denied or unavailable! 🔒");
     }
   };
 
@@ -914,6 +997,7 @@ export default function EmoCompanion() {
       pulseSquish(1.3, 0.8);
       setEnergy((e) => Math.min(100, e + selected.energy));
       setAffection((a) => Math.min(100, a + 4));
+      gainXP(10);
 
       setTimeout(() => {
         sounds.munch();
@@ -962,6 +1046,31 @@ export default function EmoCompanion() {
     sounds.whee();
     pulseSquish(1.2, 1.2);
     clearMoodSoon("dizzy", 4500);
+  };
+
+  // --- SNEEZE TRIGGER ---
+  const triggerSneeze = () => {
+    setMood("surprised");
+    setMsg("Ah... Ahhh...");
+    pulseSquish(0.9, 1.2);
+    setTimeout(() => {
+      sounds.sneezeSound();
+      setMood("happy");
+      setMsg("ACHOOOO! 🤧💥");
+      pulseSquish(1.4, 0.7);
+      phys.current.vy = -10;
+      clearMoodSoon("happy", 1800);
+    }, 800);
+  };
+
+  // --- ZEN MEDITATION ---
+  const triggerZenMode = () => {
+    setMood("happy");
+    setMsg("Zen Mode Activated... Inhale, Exhale 🧘‍♂️✨");
+    speakText("Entering calm meditation mode.");
+    sounds.playZenChimes();
+    pulseSquish(1.1, 1.1);
+    clearMoodSoon("happy", 6000);
   };
 
   // Gyroscope / Device Motion Shake Sensor
@@ -1066,6 +1175,7 @@ export default function EmoCompanion() {
     else comboCount.current = 1;
     lastTapTime.current = now;
     setComboMeter(comboCount.current);
+    gainXP(2);
 
     if (comboCount.current >= EXPLODE_THRESHOLD) {
       if (doubleTapTimer.current) clearTimeout(doubleTapTimer.current);
@@ -1099,6 +1209,7 @@ export default function EmoCompanion() {
 
   const triggerAnimalSound = (animalKey) => {
     const key = animalKey.toLowerCase();
+    gainXP(5);
     if (key.includes("cat") || key.includes("kitten") || key.includes("meow")) {
       sounds.animalSounds.cat();
       setMood("happy");
@@ -1152,6 +1263,7 @@ export default function EmoCompanion() {
     setMsg("Checking the weather... ⛅");
     setMood("surprised");
     sounds.chirp();
+    gainXP(15);
     try {
       const getCoords = () =>
         new Promise((resolve) => {
@@ -1187,6 +1299,7 @@ export default function EmoCompanion() {
   const fetchLiveJoke = async () => {
     setMsg("Looking for a good joke... 😂");
     sounds.chirp();
+    gainXP(10);
     try {
       const res = await fetch("https://v2.jokeapi.dev/joke/Programming,Pun?blacklistFlags=nsfw,racist,sexist");
       const data = await res.json();
@@ -1209,6 +1322,7 @@ export default function EmoCompanion() {
   const fetchLiveTrivia = async () => {
     setMsg("Fetching a trivia question... 🧠");
     sounds.chirp();
+    gainXP(10);
     try {
       const res = await fetch("https://opentdb.com/api.php?amount=1&type=multiple");
       const data = await res.json();
@@ -1232,6 +1346,7 @@ export default function EmoCompanion() {
     const name = queryName ? queryName.trim().toLowerCase() : ["pikachu", "charizard", "gengar", "mewtwo", "eevee", "lucario"][Math.floor(Math.random() * 6)];
     setMsg(`Scanning ${name.toUpperCase()}... 🔍⚡`);
     sounds.chirp();
+    gainXP(15);
     try {
       const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
       if (!res.ok) throw new Error("Pokemon not found");
@@ -1255,6 +1370,7 @@ export default function EmoCompanion() {
   const fetchNasaSpaceScan = async () => {
     setMsg("Checking NASA Astronomy discovery... 🌌");
     setMood("surprised");
+    gainXP(15);
     try {
       const res = await fetch("https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY");
       const data = await res.json();
@@ -1269,6 +1385,7 @@ export default function EmoCompanion() {
   const fetchWordDefinition = async (word) => {
     const targetWord = word ? word.trim().toLowerCase() : "serendipity";
     setMsg(`Looking up "${targetWord}"... 📖`);
+    gainXP(10);
     try {
       const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${targetWord}`);
       const data = await res.json();
@@ -1296,11 +1413,12 @@ export default function EmoCompanion() {
     }, 3500);
   };
 
-  // Voice Command & Conversational Dispatcher (Talk Back + Repeat Feature)
+  // Voice Command & Conversational Dispatcher
   const handleVoiceCommand = useCallback(
     (commandText) => {
       const txt = commandText.toLowerCase().trim();
       markInteraction();
+      gainXP(10);
 
       // --- REPEAT / MIMIC MODE OVERRIDE ---
       if (isMimicModeRef.current || txt.startsWith("repeat after me") || txt.startsWith("say ") || txt.startsWith("repeat ")) {
@@ -1328,6 +1446,14 @@ export default function EmoCompanion() {
         triggerShootSelf();
       } else if (txt.includes("shake") || txt.includes("dizzy") || txt.includes("spin") || txt.includes("hypno")) {
         triggerDizzy();
+      } else if (txt.includes("sneeze") || txt.includes("achoo")) {
+        triggerSneeze();
+      } else if (txt.includes("zen") || txt.includes("meditate") || txt.includes("calm")) {
+        triggerZenMode();
+      } else if (txt.includes("whistle")) {
+        sounds.whistle();
+        setMood("happy");
+        setMsg("Whistling a cheerful 8-bit tune! 🎶");
       } else if (
         txt.includes("cat") ||
         txt.includes("dog") ||
@@ -1377,8 +1503,8 @@ export default function EmoCompanion() {
         setTimeout(() => setClockDisplay(null), 8000);
       } else if (txt.includes("feeling") || txt.includes("status")) {
         setMood("happy");
-        setMsg(`Affection: ${affection}% | Energy: ${energy}% ⚡ Feeling fantastic!`);
-        speakText(`I am feeling fantastic! Affection is at ${affection} percent.`);
+        setMsg(`Level: ${level} | Affection: ${affection}% | Energy: ${energy}% ⚡`);
+        speakText(`I am feeling fantastic at level ${level}!`);
       } else if (txt.includes("simon") || txt.includes("memory")) {
         startSimonGame();
       } else if (txt.includes("dance") || txt.includes("music") || txt.includes("party")) {
@@ -1509,20 +1635,19 @@ export default function EmoCompanion() {
       } else if (txt.includes("explode") || txt.includes("boom") || txt.includes("destruct")) {
         explode();
       } else {
-        // --- TALK BACK CONVERSATIONAL INTELLIGENCE ---
-        const botResponse = generateBotReply(txt, affection, energy);
+        const botResponse = generateBotReply(txt, affection, energy, level);
         setMood(botResponse.mood);
         setMsg(botResponse.text);
         speakText(botResponse.text);
       }
     },
-    [sounds, speakText, themeIdx, affection, energy]
+    [sounds, speakText, themeIdx, affection, energy, level, gainXP]
   );
 
   const toggleListening = () => {
     if (typeof window === "undefined") return;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) {
       alert("Speech recognition is not supported in this browser. Try Chrome or Edge!");
       return;
     }
@@ -1533,7 +1658,7 @@ export default function EmoCompanion() {
     }
 
     try {
-      const recognition = new SpeechRecognition();
+      const recognition = new SpeechRec();
       recognition.continuous = false;
       recognition.interimResults = false;
       recognition.lang = "en-US";
@@ -1656,6 +1781,7 @@ export default function EmoCompanion() {
         rubAccum.current = 0;
         sleepyMeter.current += 7;
         setAffection((a) => Math.min(100, a + 1));
+        gainXP(1);
         pulseSquish(1.12, 0.9);
 
         if (now - lastSoundTime.current > 240) {
@@ -1711,7 +1837,7 @@ export default function EmoCompanion() {
     }
   };
 
-  // Main Physics & Loop
+  // Main Physics, Floating Middle Hover & Autonomous Idle Engine
   useEffect(() => {
     let blinkTimer = setTimeout(function loopBlink() {
       setBlink(true);
@@ -1727,6 +1853,8 @@ export default function EmoCompanion() {
       const grav = BASE_GRAVITY * gravityDir.current;
       const halfW = robotSize.w / 2;
       const halfH = robotSize.h / 2;
+      const centerX = (b.left + b.right) / 2;
+      const centerY = (b.top + b.bottom) / 2;
 
       if (moodRef.current !== "exploded") {
         if (p.stuck) {
@@ -1755,6 +1883,7 @@ export default function EmoCompanion() {
             }
           }
         } else {
+          // Check soccer or laser active interactions
           if (activeToyRef.current === "ball" && bp.active && !bp.held) {
             const bdx = bp.x - p.x;
             const dist = Math.hypot(bdx, bp.y - p.y);
@@ -1765,18 +1894,30 @@ export default function EmoCompanion() {
                 sounds.jump();
               }
             }
+            p.vy += grav;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vx *= AIR_FRICTION;
           } else if (activeToyRef.current === "laser" && laserPos) {
             const ldx = laserPos.x - p.x;
             const ldist = Math.hypot(ldx, laserPos.y - p.y);
             if (ldist > 30 && ldist < 550) {
               p.vx += (ldx / ldist) * 0.85;
             }
-          }
+            p.vy += grav;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vx *= AIR_FRICTION;
+          } else {
+            // === FLOATING IN THE MIDDLE OF THE SCREEN (IDLE HOVER) ===
+            const floatTargetY = centerY + Math.sin(now / 450) * 14;
+            const floatTargetX = centerX + Math.cos(now / 900) * 18;
 
-          p.vy += grav;
-          p.x += p.vx;
-          p.y += p.vy;
-          p.vx *= AIR_FRICTION;
+            p.x += (floatTargetX - p.x) * 0.045;
+            p.y += (floatTargetY - p.y) * 0.045;
+            p.vx *= 0.85;
+            p.vy *= 0.85;
+          }
 
           if (!p.stuck && Math.abs(p.vy) > 16 && moodRef.current !== "scared" && moodRef.current !== "asleep" && !hasScreamed.current) {
             hasScreamed.current = true;
@@ -1830,6 +1971,7 @@ export default function EmoCompanion() {
         }
       }
 
+      // SOCCER BALL PHYSICS
       if (activeToyRef.current === "ball" && bp.active && !bp.held) {
         bp.vy += grav * 0.88;
         bp.x += bp.vx;
@@ -1863,6 +2005,7 @@ export default function EmoCompanion() {
             bp.vy = ny * 12 + p.vy * 0.6;
             sounds.ballHit();
             pulseSquish(1.2, 0.8);
+            gainXP(5);
             setMsg(["Rocket shot! ⚽", "Heading it back!", "Goal strike! 🔥"][Math.floor(Math.random() * 3)]);
           }
         }
@@ -1872,8 +2015,53 @@ export default function EmoCompanion() {
         }
       }
 
+      // === AUTONOMOUS IDLE BEHAVIORS ENGINE ===
       if (!p.held && !p.stuck && moodRef.current !== "exploded" && moodRef.current !== "falling") {
         const idleFor = now - lastInteraction.current;
+        const autoFor = now - lastAutonomousAction.current;
+
+        // Trigger spontaneous actions while user is idle
+        if (idleFor > 4000 && autoFor > nextAutonomousInterval.current && moodRef.current === "idle") {
+          lastAutonomousAction.current = now;
+          nextAutonomousInterval.current = IDLE_AUTONOMOUS_MIN_MS + Math.random() * (IDLE_AUTONOMOUS_MAX_MS - IDLE_AUTONOMOUS_MIN_MS);
+
+          const idleActions = [
+            () => {
+              const thought = AUTONOMOUS_THOUGHTS[Math.floor(Math.random() * AUTONOMOUS_THOUGHTS.length)];
+              setThoughtBubble(thought);
+              sounds.chirp();
+              setTimeout(() => setThoughtBubble(null), 5500);
+            },
+            () => {
+              sounds.whistle();
+              setMood("happy");
+              setMsg("Whistling while floating... 🎶✨");
+              pulseSquish(1.1, 0.9);
+              clearMoodSoon("happy", 2200);
+            },
+            () => {
+              setMood("dancing");
+              setMsg("Practicing my spin! 🕺✨");
+              sounds.boing();
+              pulseSquish(1.2, 0.8);
+              clearMoodSoon("dancing", 2500);
+            },
+            () => {
+              triggerSneeze();
+            },
+            () => {
+              pulseSquish(1.15, 1.15);
+              sounds.chirp();
+              setMsg("Scanning the room... Everything looks awesome! 🔍💫");
+              clearMoodSoon("idle", 2500);
+            },
+          ];
+
+          const pick = idleActions[Math.floor(Math.random() * idleActions.length)];
+          pick();
+        }
+
+        // Sleepy & Asleep Stages
         if (idleFor > IDLE_SLEEPY_MS && idleFor < IDLE_ASLEEP_MS && moodRef.current === "idle") {
           setMood("sleepy");
           setMsg("*Yaaawn* Getting sleepy... 🥱");
@@ -1895,7 +2083,7 @@ export default function EmoCompanion() {
       if (unstickTimer.current) clearTimeout(unstickTimer.current);
       if (doubleTapTimer.current) clearTimeout(doubleTapTimer.current);
     };
-  }, [sounds, laserPos]);
+  }, [sounds, laserPos, gainXP]);
 
   const currentTheme = CHASSIS_THEMES[themeIdx];
   const comboRatio = Math.min(comboMeter / EXPLODE_THRESHOLD, 1);
@@ -1930,6 +2118,14 @@ export default function EmoCompanion() {
           0% { transform: translate(0,0) scale(0.5); opacity: 1; }
           100% { transform: translate(0, -90px) scale(1.3); opacity: 0; }
         }
+        @keyframes thoughtPop {
+          0% { transform: scale(0.6); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes glowRing {
+          0%, 100% { box-shadow: 0 0 20px rgba(56, 189, 248, 0.4), inset 0 0 15px rgba(56, 189, 248, 0.2); }
+          50% { box-shadow: 0 0 35px rgba(56, 189, 248, 0.8), inset 0 0 25px rgba(56, 189, 248, 0.5); }
+        }
       `}</style>
 
       {matrixActive && (
@@ -1942,314 +2138,312 @@ export default function EmoCompanion() {
         </div>
       )}
 
-      {/* FLOATING QUICK ACTIONS */}
-    <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1rem)] max-w-[520px]">
-  <div className="flex flex-row items-center justify-center gap-2 sm:gap-3 w-full">
+      {/* ========================================================================= */}
+      {/* SINGLE UNIFIED GLOWING INTERACTIVE POD (FLOATING AT BOTTOM CENTER) */}
+      {/* ========================================================================= */}
+      <div className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-40">
+        <button
+          onClick={() => setHubOpen(true)}
+          aria-label="Open Companion Control Deck & Voice Command Center"
+          aria-expanded={hubOpen}
+          className="group relative flex items-center justify-center gap-3 px-6 sm:px-8 py-3.5 sm:py-4 rounded-full bg-slate-950/85 hover:bg-slate-900 text-cyan-300 font-mono tracking-wider font-semibold backdrop-blur-2xl border border-cyan-400/50 hover:border-cyan-300 transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(6,182,212,0.35)] hover:shadow-[0_0_50px_rgba(6,182,212,0.7)]"
+          style={{ animation: "glowRing 3s infinite ease-in-out" }}
+        >
+          {/* Animated Neon Beacon Rings */}
+          <span className="relative flex h-3.5 w-3.5 items-center justify-center shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-80" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-300 shadow-[0_0_12px_#38bdf8]" />
+          </span>
 
-    {/* ==================== INTERACT ==================== */}
-    <button
-      onClick={() => setControlPanelOpen(true)}
-      className="group relative flex-1 min-w-0 flex items-center justify-center gap-1.5 sm:gap-3
-        px-3 sm:px-6 py-2.5 sm:py-3
-        rounded-full
-        bg-slate-950/80 hover:bg-cyan-950/70
-        text-cyan-300
-        font-mono text-[10px] sm:text-sm
-        tracking-wider font-semibold
-        whitespace-nowrap
-        backdrop-blur-xl
-        border border-cyan-500/40
-        shadow-[0_0_20px_rgba(6,182,212,0.2)]
-        hover:shadow-[0_0_40px_rgba(6,182,212,0.6)]
-        hover:border-cyan-400/80
-        transition-all duration-300
-        hover:scale-[1.02] sm:hover:scale-105
-        active:scale-95
-        overflow-hidden"
-    >
-      {/* Cyan indicator */}
-      <span className="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
-        <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
-      </span>
+          <span className="uppercase text-xs sm:text-sm font-bold tracking-[0.2em] text-white group-hover:text-cyan-200 transition-colors">
+            {isListening ? "Listening..." : "Click Me"}
+          </span>
 
-      <span className="uppercase text-[10px] sm:text-xs tracking-[0.12em] sm:tracking-[0.15em] text-slate-200 group-hover:text-white transition-colors duration-200 truncate">
-        Interact
-      </span>
-    </button>
+          {/* Dynamic Badge for Active Features */}
+          <div className="flex items-center gap-1.5 ml-1 px-2.5 py-0.5 rounded-full bg-white/10 text-[10px] text-cyan-200 border border-white/10">
+            <span>LVL {level}</span>
+            {isListening && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
+            {isMimicMode && <span>🗣️</span>}
+          </div>
+        </button>
+      </div>
 
-
-    {/* ==================== TALK BACK ==================== */}
-    <button
-      onClick={toggleListening}
-      className={`group relative flex-1 min-w-0 flex items-center justify-center gap-1.5 sm:gap-3
-        px-3 sm:px-6 py-2.5 sm:py-3
-        rounded-full
-        font-mono text-[10px] sm:text-sm
-        tracking-wider font-semibold
-        whitespace-nowrap
-        backdrop-blur-xl
-        border
-        transition-all duration-300
-        hover:scale-[1.02] sm:hover:scale-105
-        active:scale-95
-        overflow-hidden
-        ${
-          isListening
-            ? "bg-rose-950/80 hover:bg-rose-900/80 border-rose-400/60 text-rose-200 shadow-[0_0_25px_rgba(244,63,94,0.45)] hover:shadow-[0_0_45px_rgba(244,63,94,0.7)]"
-
-            : isMimicMode
-            ? "bg-violet-950/80 hover:bg-violet-900/80 border-violet-400/60 text-violet-200 shadow-[0_0_25px_rgba(139,92,246,0.35)] hover:shadow-[0_0_45px_rgba(139,92,246,0.6)]"
-
-            : "bg-violet-950/60 hover:bg-violet-900/70 border-violet-500/50 hover:border-violet-400/80 text-violet-200 shadow-[0_0_20px_rgba(139,92,246,0.25)] hover:shadow-[0_0_40px_rgba(139,92,246,0.55)]"
-        }`}
-    >
-      {/* Voice indicator */}
-      <span className="relative flex items-center justify-center h-4 w-4 shrink-0">
-
-        {isListening ? (
-          <>
-            <span className="absolute h-4 w-4 rounded-full bg-rose-400/20 animate-ping" />
-            <span className="absolute h-3 w-3 rounded-full bg-rose-400/30 animate-pulse" />
-            <span className="relative text-[10px]">●</span>
-          </>
-        ) : isMimicMode ? (
-          <>
-            <span className="absolute h-4 w-4 rounded-full bg-violet-400/20 animate-pulse" />
-            <span className="relative text-sm">◉</span>
-          </>
-        ) : (
-          <>
-            <span className="absolute h-4 w-4 rounded-full bg-violet-400/20 animate-pulse" />
-            <span className="relative text-[10px]">🎙</span>
-          </>
-        )}
-
-      </span>
-
-      <span className="uppercase text-[10px] sm:text-xs tracking-[0.12em] sm:tracking-[0.15em] text-slate-200 group-hover:text-white transition-colors duration-200 truncate">
-        {isListening
-          ? "Listening..."
-          : isMimicMode
-          ? "Repeat Me"
-          : "Talk"}
-      </span>
-    </button>
-
-  </div>
-</div>
-      {/* ALL-IN-ONE UNIFIED CONTROL PANEL MODAL */}
-      {controlPanelOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-slate-950/95 border border-cyan-500/30 p-5 sm:p-6 text-white shadow-2xl flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+      {/* ========================================================================= */}
+      {/* FULL-FEATURED UNIFIED CONTROL DECK MODAL */}
+      {/* ========================================================================= */}
+      {hubOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="EMO Control Center"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-lg animate-in fade-in duration-200"
+        >
+          <div className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-slate-950/95 border border-cyan-500/40 p-5 sm:p-6 text-white shadow-[0_0_60px_rgba(6,182,212,0.25)] flex flex-col gap-4 max-h-[90vh] overflow-hidden">
             
+            {/* Header & Close Button */}
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🤖</span>
-                <h3 className="font-bold text-sm text-cyan-300 font-mono">Talk & Interactive Controls</h3>
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">🤖</span>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-cyan-300 font-mono tracking-wide">EMO Control Pod</h3>
+                </div>
               </div>
               <button
-                onClick={() => setControlPanelOpen(false)}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs font-bold text-slate-300"
+                onClick={() => setHubOpen(false)}
+                aria-label="Close Control Deck"
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs font-bold text-slate-300 transition-colors active:scale-90"
               >
                 ✕
               </button>
             </div>
 
-            {/* Talk Back & Repeat Mode */}
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider font-mono">Voice & Talk Back Modes</span>
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  onClick={() => {
-                    toggleListening();
-                    setControlPanelOpen(false);
-                  }}
-                  className={`py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm border shadow-lg transition-all active:scale-95 ${
-                    isListening
-                      ? "bg-rose-500 border-rose-400 text-white animate-bounce"
-                      : "bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/40 text-cyan-200"
-                  }`}
-                >
-                  <span className="text-lg">{isListening ? "🔴" : "🎙️"}</span>
-                  <span>{isListening ? "Listening..." : "Talk"}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setIsMimicMode((m) => !m);
-                    speakText(isMimicMode ? "Repeat mode turned off." : "Repeat mode on. Say anything, and I will repeat it!");
-                    setMsg(isMimicMode ? "Repeat Mode: OFF ❌" : "Repeat Mode: ON 🗣️");
-                  }}
-                  className={`py-3.5 px-4 rounded-2xl border font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 ${
-                    isMimicMode
-                      ? "bg-amber-500/30 border-amber-400 text-amber-200 font-bold"
-                      : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
-                  }`}
-                >
-                  <span className="text-lg">🗣️</span>
-                  <span>{isMimicMode ? "Repeat: ON" : "Repeat Mode"}</span>
-                </button>
-              </div>
-              <button
-                  onClick={() => {
-                    setCommandsOpen(true);
-                    setControlPanelOpen(false);
-                  }}
-                  className="p-2.5 rounded-xl  hover:bg-cyan-500/30 border border-cyan-400/40 flex items-center justify-center gap-1.5 text-xs text-cyan-200 transition active:scale-95"
-                >
-                  <span>📜</span>
-                  <span>Read Command List</span>
-                </button>
-            </div>
-
-            {/* Quick Conversation Prompts */}
-            <div className="flex flex-col gap-1.5 pt-1">
-              <div className="flex flex-wrap gap-1.5">
-                {["How are you?", "Who are you?", "Tell me a story", "Sing a song","Take a picture","Tell me a joke"].map((promptText) => (
-                  <button
-                    key={promptText}
-                    onClick={() => {
-                      handleVoiceCommand(promptText);
-                      setControlPanelOpen(false);
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-cyan-500/20 border border-white/10 text-xs text-cyan-200 transition active:scale-95"
-                  >
-                    "{promptText}"
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Actions & Interactions */}
-            <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  onClick={() => {
-                    triggerTakePic();
-                    setControlPanelOpen(false);
-                  }}
-                  className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center gap-1 text-xs transition active:scale-95"
-                >
-                  <span className="text-xl">📸</span>
-                  <span className="text-[10px] text-slate-300">Photo</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    triggerEatFood();
-                    setControlPanelOpen(false);
-                  }}
-                  className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center gap-1 text-xs transition active:scale-95"
-                >
-                  <span className="text-xl">🍔</span>
-                  <span className="text-[10px] text-slate-300">Eat</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setActiveToy((t) => (t === "ball" ? "hand" : "ball"));
-                    ballPhys.current.active = true;
-                    setControlPanelOpen(false);
-                  }}
-                  className={`p-3 rounded-2xl border flex flex-col items-center gap-1 text-xs transition active:scale-95 ${
-                    activeToy === "ball"
-                      ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300 font-bold"
-                      : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
-                  }`}
-                >
-                  <span className="text-xl">⚽</span>
-                  <span className="text-[10px]">Soccer</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    triggerShootSelf();
-                    setControlPanelOpen(false);
-                  }}
-                  className="p-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 flex flex-col items-center gap-1 text-xs text-rose-300 transition active:scale-95"
-                >
-                  <span className="text-xl">💥</span>
-                  <span className="text-[10px]">Shoot</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 mt-1">
-                <button
-                  onClick={() => {
-                    handleVoiceCommand("dance");
-                    setControlPanelOpen(false);
-                  }}
-                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-1.5 text-xs text-slate-300 transition active:scale-95"
-                >
-                  <span>🕺</span>
-                  <span>Dance</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    handleVoiceCommand("joke");
-                    setControlPanelOpen(false);
-                  }}
-                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-1.5 text-xs text-slate-300 transition active:scale-95"
-                >
-                  <span>😂</span>
-                  <span>Joke</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setCommandsOpen(true);
-                    setControlPanelOpen(false);
-                  }}
-                  className="p-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 flex items-center justify-center gap-1.5 text-xs text-cyan-200 transition active:scale-95"
-                >
-                  <span>📜</span>
-                  <span>Deck</span>
-                </button>
-              </div>
-            </div>
-
-            {/* System Settings & Customization */}
-            <div className="flex flex-col gap-2.5 pt-2 border-t border-white/10">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Theme & Voice Sound</span>
-              
-              <div>
-                <div className="grid grid-cols-5 gap-2">
-                  {CHASSIS_THEMES.map((theme, i) => (
-                    <button
-                      key={theme.name}
-                      onClick={() => setThemeIdx(i)}
-                      className="h-8 rounded-xl border-2 transition-all hover:scale-105"
-                      style={{ background: theme.accent, borderColor: i === themeIdx ? "#ffffff" : "transparent" }}
-                      title={theme.name}
-                    />
-                  ))}
+            {/* Status & Stats Banner */}
+            <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-white/5 border border-white/10 font-mono text-center text-xs">
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] text-slate-400">EXP POINTS</span>
+                <span className="font-bold text-amber-400">{xp} / {level * 100}</span>
+                <div className="w-16 h-1 rounded-full bg-white/10 mt-1 overflow-hidden">
+                  <div className="h-full bg-amber-400" style={{ width: `${(xp / (level * 100)) * 100}%` }} />
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                <button
-                  onClick={() => setMuted((m) => !m)}
-                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-xs text-slate-300 transition"
-                >
-                  <span>{muted ? "🔇" : "🔊"}</span>
-                  <span>{muted ? "Muted" : "Voice On"}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    gravityDir.current *= -1;
-                    sounds.jump();
-                    setControlPanelOpen(false);
-                  }}
-                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-xs text-slate-300 transition"
-                >
-                  <span>🛸</span>
-                  <span>Flip Gravity</span>
-                </button>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] text-slate-400">AFFECTION</span>
+                <span className="font-bold text-pink-400">💖 {affection}%</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] text-slate-400">ENERGY</span>
+                <span className="font-bold text-emerald-400">⚡ {energy}%</span>
               </div>
             </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex gap-1.5 p-1 rounded-xl bg-slate-900/80 border border-white/10">
+              {[
+                { id: "voice", label: "🎙️ Voice/Chat" },
+                { id: "actions", label: "🎮 Interact" },
+                { id: "commands", label: "📜 Commands" },
+                { id: "settings", label: "⚙️ System" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 py-2 rounded-lg text-xs font-semibold font-mono tracking-wide transition-all ${
+                    activeTab === tab.id
+                      ? "bg-cyan-500/25 text-cyan-300 border border-cyan-400/40 shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Contents */}
+            <div className="overflow-y-auto pr-1 flex flex-col gap-3 min-h-[220px] max-h-[360px]">
+              
+              {/* TAB 1: VOICE & TALK BACK */}
+              {activeTab === "voice" && (
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      onClick={() => {
+                        toggleListening();
+                        setHubOpen(false);
+                      }}
+                      className={`py-4 px-4 rounded-2xl flex flex-col items-center justify-center gap-2 font-bold text-sm border shadow-lg transition-all active:scale-95 ${
+                        isListening
+                          ? "bg-rose-500/30 border-rose-400 text-rose-200 animate-pulse shadow-[0_0_30px_rgba(244,63,94,0.4)]"
+                          : "bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/40 text-cyan-200 hover:shadow-[0_0_20px_rgba(6,182,212,0.3)]"
+                      }`}
+                    >
+                      <span className="text-2xl">{isListening ? "🔴" : "🎙️"}</span>
+                      <span>{isListening ? "Listening Now..." : "Push to Talk"}</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsMimicMode((m) => !m);
+                        speakText(isMimicMode ? "Repeat mode turned off." : "Repeat mode on. Say anything, and I will repeat it!");
+                        setMsg(isMimicMode ? "Repeat Mode: OFF ❌" : "Repeat Mode: ON 🗣️");
+                      }}
+                      className={`py-4 px-4 rounded-2xl border font-bold text-sm flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-95 ${
+                        isMimicMode
+                          ? "bg-amber-500/30 border-amber-400 text-amber-200 font-bold shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                          : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
+                      }`}
+                    >
+                      <span className="text-2xl">🗣️</span>
+                      <span>{isMimicMode ? "Repeat: ON" : "Repeat Mode"}</span>
+                    </button>
+                  </div>
+
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono mt-1">Quick Prompts</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["How are you?", "Who are you?", "Tell me a story", "Sing a song", "Tell me a joke", "Meditate", "Sneeze", "Whistle"].map((promptText) => (
+                      <button
+                        key={promptText}
+                        onClick={() => {
+                          handleVoiceCommand(promptText);
+                          setHubOpen(false);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-cyan-500/20 border border-white/10 text-xs text-cyan-200 transition active:scale-95"
+                      >
+                        "{promptText}"
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: INTERACTIVE TOYS & ACTIONS */}
+              {activeTab === "actions" && (
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-4 gap-2">
+                    <button
+                      onClick={() => {
+                        triggerTakePic();
+                        setHubOpen(false);
+                      }}
+                      className="p-3 rounded-2xl bg-white/5 hover:bg-cyan-500/20 border border-white/10 flex flex-col items-center gap-1.5 text-xs transition active:scale-95"
+                    >
+                      <span className="text-2xl">📸</span>
+                      <span className="text-[10px] text-slate-300 font-medium">Camera</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setActiveToy((t) => (t === "ball" ? "hand" : "ball"));
+                        ballPhys.current.active = true;
+                        setHubOpen(false);
+                      }}
+                      className={`p-3 rounded-2xl border flex flex-col items-center gap-1.5 text-xs transition active:scale-95 ${
+                        activeToy === "ball"
+                          ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300 font-bold"
+                          : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
+                      }`}
+                    >
+                      <span className="text-2xl">⚽</span>
+                      <span className="text-[10px]">Soccer</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        handleVoiceCommand("dance");
+                        setHubOpen(false);
+                      }}
+                      className="p-3 rounded-2xl bg-white/5 hover:bg-violet-500/20 border border-white/10 flex flex-col items-center gap-1.5 text-xs transition active:scale-95"
+                    >
+                      <span className="text-2xl">🕺</span>
+                      <span className="text-[10px] text-slate-300 font-medium">Dance DJ</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        triggerShootSelf();
+                        setHubOpen(false);
+                      }}
+                      className="p-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 flex flex-col items-center gap-1.5 text-xs text-rose-300 transition active:scale-95"
+                    >
+                      <span className="text-2xl">💥</span>
+                      <span className="text-[10px]">Blast</span>
+                    </button>
+                  </div>
+
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono mt-1">Feed Cyber Snacks</span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {FOOD_ITEMS.slice(0, 4).map((item) => (
+                      <button
+                        key={item.name}
+                        onClick={() => {
+                          triggerEatFood(item);
+                          setHubOpen(false);
+                        }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-pink-500/20 border border-white/10 flex flex-col items-center gap-1 transition active:scale-95"
+                      >
+                        <span className="text-xl">{item.icon}</span>
+                        <span className="text-[9px] text-slate-300">{item.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: COMMANDS LIST */}
+              {activeTab === "commands" && (
+                <div className="flex flex-col gap-3">
+                  {COMMAND_LIST.map((group, gi) => (
+                    <div key={gi} className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider font-mono">{group.group}</span>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {group.items.map((item, ii) => (
+                          <div
+                            key={ii}
+                            onClick={() => {
+                              const raw = item.cmd.split("/")[0].replace(/["']/g, "").trim();
+                              handleVoiceCommand(raw);
+                              setHubOpen(false);
+                            }}
+                            className="p-2.5 rounded-xl bg-white/5 hover:bg-cyan-500/10 border border-white/10 transition cursor-pointer flex flex-col gap-0.5"
+                          >
+                            <span className="font-bold text-cyan-200 text-xs">{item.cmd}</span>
+                            <span className="text-slate-400 text-[11px]">{item.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* TAB 4: SYSTEM SETTINGS & CHASSIS */}
+              {activeTab === "settings" && (
+                <div className="flex flex-col gap-3">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Chassis Glow Theme</span>
+                  <div className="grid grid-cols-6 gap-2">
+                    {CHASSIS_THEMES.map((theme, i) => (
+                      <button
+                        key={theme.name}
+                        onClick={() => setThemeIdx(i)}
+                        className="h-9 rounded-xl border-2 transition-all hover:scale-105"
+                        style={{ background: theme.accent, borderColor: i === themeIdx ? "#ffffff" : "transparent" }}
+                        title={theme.name}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <button
+                      onClick={() => setMuted((m) => !m)}
+                      className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-xs text-slate-300 transition"
+                    >
+                      <span>{muted ? "🔇" : "🔊"}</span>
+                      <span>{muted ? "Muted" : "Voice Sound On"}</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        gravityDir.current *= -1;
+                        sounds.jump();
+                        setHubOpen(false);
+                      }}
+                      className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-xs text-slate-300 transition"
+                    >
+                      <span>🛸</span>
+                      <span>Flip Antigravity</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Bottom Dismiss */}
+            <button
+              onClick={() => setHubOpen(false)}
+              className="w-full py-2 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs tracking-wider transition-all active:scale-98"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -2324,6 +2518,7 @@ export default function EmoCompanion() {
                   if (choice === liveQuiz.correct) {
                     sounds.chirp();
                     setMood("happy");
+                    gainXP(30);
                     setMsg("CORRECT! You nailed it! 🏆✨");
                     speakText("Correct answer! You are brilliant!");
                   } else {
@@ -2368,6 +2563,7 @@ export default function EmoCompanion() {
                     sounds.chirp();
                     if (simonGame.step + 1 >= simonGame.sequence.length) {
                       setMood("happy");
+                      gainXP(25);
                       setMsg("YOU WON! Outstanding memory! 🏆✨");
                       speakText("Sequence complete! You win!");
                       setSimonGame(null);
@@ -2391,57 +2587,6 @@ export default function EmoCompanion() {
         </div>
       )}
 
-      {/* COMMANDS MODAL */}
-      {commandsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-lg rounded-3xl bg-slate-950 border border-cyan-500/40 p-5 sm:p-6 text-white shadow-2xl flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🤖</span>
-                <h3 className="font-bold text-base sm:text-lg text-cyan-300 font-mono">EMO Command Deck</h3>
-              </div>
-              <button
-                onClick={() => setCommandsOpen(false)}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="overflow-y-auto pr-1 flex flex-col gap-4 my-3 text-xs">
-              {COMMAND_LIST.map((group, gi) => (
-                <div key={gi} className="flex flex-col gap-1.5">
-                  <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">{group.group}</span>
-                  <div className="grid grid-cols-1 gap-1.5">
-                    {group.items.map((item, ii) => (
-                      <div
-                        key={ii}
-                        onClick={() => {
-                          const raw = item.cmd.split("/")[0].replace(/["']/g, "").trim();
-                          handleVoiceCommand(raw);
-                          setCommandsOpen(false);
-                        }}
-                        className="p-2.5 rounded-xl bg-white/5 hover:bg-cyan-500/10 border border-white/10 transition cursor-pointer flex flex-col gap-0.5"
-                      >
-                        <span className="font-bold text-cyan-200">{item.cmd}</span>
-                        <span className="text-slate-400 text-[11px]">{item.desc}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setCommandsOpen(false)}
-              className="w-full py-2.5 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs hover:bg-cyan-400 transition"
-            >
-              Close Command Deck
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* GAME OVERLAY BANNER */}
       {gameOverlay && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 animate-bounce max-w-[90%]">
@@ -2460,8 +2605,25 @@ export default function EmoCompanion() {
         </div>
       )}
 
+      {/* AUTONOMOUS THOUGHT BUBBLE */}
+      {thoughtBubble && mood !== "exploded" && (
+        <div
+          className="absolute z-30 pointer-events-none text-center max-w-[240px]"
+          style={{
+            left: 0,
+            top: 0,
+            transform: `translate3d(${phys.current.x - 120}px, ${phys.current.y - robotSize.h / 2 - 60}px, 0)`,
+            animation: "thoughtPop 0.3s ease-out forwards",
+          }}
+        >
+          <div className="px-3.5 py-2 rounded-2xl bg-violet-950/90 border border-violet-400/50 backdrop-blur-md text-violet-200 text-xs font-semibold shadow-2xl">
+            💭 {thoughtBubble}
+          </div>
+        </div>
+      )}
+
       {/* SPEECH BUBBLE */}
-      {mood !== "exploded" && msg && (
+      {mood !== "exploded" && msg && !thoughtBubble && (
         <div
           className="absolute z-30 transition-all duration-150 pointer-events-none whitespace-normal text-center max-w-[260px]"
           style={{
@@ -2566,7 +2728,7 @@ export default function EmoCompanion() {
         </div>
       )}
 
-      {/* DIGITAL ROBOT FACE */}
+      {/* DIGITAL ROBOT FACE (FLOATS IN MIDDLE OF SCREEN) */}
       {mood !== "exploded" && (
         <div
           ref={robotRef}
